@@ -42,6 +42,20 @@
            Consequently, don't hesitate to put as many comments as necessary.
 */
 
+.card {
+    display: inline-block;
+    margin-left: 0.5em;
+    margin-right: 0.5em;
+}
+
+.table_label {
+    font-weight: bold;
+    margin-right: 0.5em;
+}
+
+.card_list {
+    display: inline-block;
+}
 
 /* Note: you must not use any @import directive */
 

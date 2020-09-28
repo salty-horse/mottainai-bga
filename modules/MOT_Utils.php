@@ -13,6 +13,17 @@ class MOT_Material {
     public function __toString() {
       return "Material({$this->name})";
     }
+
+    public function toJson() {
+      return [
+        'id' => $this->id,
+        'name' => $this->name,
+        'value' => $this->value,
+        'symbol' => $this->symbol,
+        'task' => $this->task,
+        'description' => $this->description,
+      ];
+    }
 }
 
 class MOT_Card {
@@ -24,5 +35,13 @@ class MOT_Card {
 
     public function __toString() {
       return "Card({$this->name})";
+    }
+
+    public function toJson() {
+      return [
+        'id' => $this->id,
+        'name' => $this->name,
+        'material' => $this->material->id,
+      ];
     }
 }

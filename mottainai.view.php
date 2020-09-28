@@ -64,17 +64,15 @@ class view_mottainai_mottainai extends game_view
         //      <!-- END myblock -->
     
     
-        $this->page->begin_block( "mottainai_mottainai", "myblock" );
-        foreach( $players as $player )
-        {
-            $this->page->insert_block( "myblock", array(
-                                                    "PLAYER_NAME" => $player['player_name'],
-                                                    "SOME_VARIABLE" => $some_value
-                                                    ...
-                                                     ) );
-        }
     
         */
+
+        $this->page->begin_block("mottainai_mottainai", "myblock");
+        foreach ($players as $player) {
+            $this->page->insert_block( "myblock", [
+                "PLAYER_NAME" => $player['player_name'],
+            ]);
+        }
     
     
     

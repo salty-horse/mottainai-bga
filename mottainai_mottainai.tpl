@@ -1,44 +1,37 @@
 {OVERALL_GAME_HEADER}
-
-<!-- 
---------
--- BGA framework: © Gregory Isabelli <gisabelli@boardgamearena.com> & Emmanuel Colin <ecolin@boardgamearena.com>
--- Mottainai implementation : © Ori Avtalion <ori@avtalion.name>
--- 
--- This code has been produced on the BGA studio platform for use on http://boardgamearena.com.
--- See http://en.boardgamearena.com/#!doc/Studio for more information.
--------
-
-    mottainai_mottainai.tpl
-    
-    This is the HTML template of your game.
-    
-    Everything you are writing in this file will be displayed in the HTML page of your game user interface,
-    in the "main game zone" of the screen.
-    
-    You can use in this template:
-    _ variables, with the format {MY_VARIABLE_ELEMENT}.
-    _ HTML block, with the BEGIN/END format
-    
-    See your "view" PHP file to check how to set variables and control blocks
-    
-    Please REMOVE this comment before publishing your game on BGA
--->
-
-
-This is your game interface. You can edit this HTML in your ".tpl" file.
-
+<!-- BEGIN myblock -->
+<div id="player_table"></div>
+<!-- END myblock -->
 
 <script type="text/javascript">
 
 // Javascript HTML templates
+var jstpl_playerTable =
+	'<div class="table whiteblock" id="player_table_${id}">' +
+	'  <h3 style="color: #${color}">${name}</h3>' +
+	'  <div><span class="table_label">Hand:</span><div class="card_list" id="player_${id}_hand"></div></div>' +
+	'  <div><span class="table_label">Task:</span><div class="card_list" id="player_${id}_task"></div></div>' +
+	'  <div><span class="table_label">Gallery:</span><div class="card_list" id="player_${id}_gallery"></div></div>' +
+	'  <div><span class="table_label">Gift Shop:</span><div class="card_list" id="player_${id}_gift_shop"></div></div>' +
+	'  <div><span class="table_label">Helpers:</span><div class="card_list" id="player_${id}_helpers"></div></div>' +
+	'  <div><span class="table_label">Craft Bench:</span><div class="card_list" id="player_${id}_craft_bench"></div></div>' +
+	'  <div><span class="table_label">Sales:</span><div class="card_list" id="player_${id}_sales"></div></div>' +
+	'  <div><span class="table_label">Waiting Area:</span><div class="card_list" id="player_${id}_waiting_area"></div></div>' +
+	'</div>';
 
-/*
-// Example:
-var jstpl_some_game_item='<div class="my_game_item" id="my_game_item_${MY_ITEM_ID}"></div>';
-
-*/
-
+var jstpl_otherPlayerTable =
+	'<div class="table whiteblock" id="player_table_${id}">' +
+	'  <h3 style="color: #${color}">${name}</h3>' +
+	'  <div><span class="table_label">Revealed hand:</span><div class="card_list" id="player_${id}_hand"></div></div>' +
+	'  <div><span class="table_label">Hand size:</span><div class="card_list" id="player_${id}_hand_size"></div></div>' +
+	'  <div><span class="table_label">Task:</span><div class="card_list" id="player_${id}_task"></div></div>' +
+	'  <div><span class="table_label">Gallery:</span><div class="card_list" id="player_${id}_gallery"></div></div>' +
+	'  <div><span class="table_label">Gift Shop:</span><div class="card_list" id="player_${id}_gift_shop"></div></div>' +
+	'  <div><span class="table_label">Helpers:</span><div class="card_list" id="player_${id}_helpers"></div></div>' +
+	'  <div><span class="table_label">Craft Bench:</span><div class="card_list" id="player_${id}_craft_bench"></div></div>' +
+	'  <div><span class="table_label">Sales:</span><div class="card_list" id="player_${id}_sales"></div></div>' +
+	'  <div><span class="table_label">Waiting Area:</span><div class="card_list" id="player_${id}_waiting_area"></div></div>' +
+	'</div>';
 </script>  
 
 {OVERALL_GAME_FOOTER}
