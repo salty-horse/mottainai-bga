@@ -28,8 +28,7 @@ define('STATE_REDUCE_HAND', 3);
 define('STATE_MORNING_EFFECTS', 4);
 define('STATE_DISCARD_OLD_TASK', 5);
 define('STATE_CHOOSE_NEW_TASK', 6);
-define('STATE_PERFORM_OPPONENT_TASK', 7);
-define('STATE_PERFORM_OWN_TASK', 8);
+define('STATE_PERFORM_NEXT_PLAYER_TASK', 7);
 define('STATE_PERFORM_TASK', 9);
 define('STATE_PERFORM_ACTION', 10);
 define('STATE_PERFORM_CLERK', 11);
@@ -58,7 +57,7 @@ class Mottainai extends Table {
         
         parent::__construct();
         self::initGameStateLabels([
-            "currentHandType" => 10,
+            "currentTaskPlayerId" => 10,
             "trickColor" => 11,
             "alreadyPlayedHearts" => 12,
             "wingSizeEndGameTrigger" => 100,
@@ -106,11 +105,8 @@ class Mottainai extends Table {
 
         // Init global values with their initial values
 
-        // Note: hand types: 0 = give 3 cards to player on the left
-        //                   1 = give 3 cards to player on the right
-        //                   2 = give 3 cards to player on tthe front
-        //                   3 = keep cards
-        self::setGameStateInitialValue('currentHandType', 0);
+        // The player ID whose task is currently being performed
+        self::setGameStateInitialValue('currentTaskPlayerId', 0);
 
         // Set current trick color to zero (= no trick color)
         self::setGameStateInitialValue('trickColor', 0);
@@ -168,7 +164,7 @@ class Mottainai extends Table {
 
         // Get information about players
         // Note: you can retrieve some extra field you added for "player" table in "dbmodel.sql" if you need it.
-        $sql = "SELECT player_id id, player_no player_order, player_score score FROM player";
+        $sql = "SELECT player_id id, player_no player_number, player_score score FROM player";
         $result['players'] = self::getCollectionFromDb($sql);
 
         // Cards in player hand
@@ -186,7 +182,7 @@ class Mottainai extends Table {
             if (!$initial_task) {
                 $task = $this->deck->getCardsInLocation('task', $player_id);
                 if ($task) {
-                    $player['task'] = $task[0];
+                    $player['task'] = array_values($task)[0];
                 }
             }
 
@@ -200,7 +196,8 @@ class Mottainai extends Table {
 
             $player['waiting_area_count'] = intval($this->deck->countCardInLocation('waiting_area', $player_id));
             $player['hand_count'] = intval($this->deck->countCardInLocation('hand', $player_id));
-            // TODO: Revealed cards in hand - keep separate table with revealed card IDs and compare against hand
+            // TODO: Store revealed cards in hand_revealed location
+			// TODO: Return current task player, action num, total action count
         }
 
         // Material and card database
@@ -249,26 +246,36 @@ class Mottainai extends Table {
      * Each time a player is doing some game action, one of the methods below is called.
      * (note: each method below must match an input method in template.action.php)
      */
-    function playCard($card_id) {
-        self::checkAction("playCard");
+    function chooseNewTask($card_id) {
+        self::checkAction('chooseNewTask');
         $player_id = self::getActivePlayerId();
-        $this->deck->moveCard($card_id, 'cardsontable', $player_id);
-        $currentCard = $this->deck->getCard($card_id);
-        // XXX check rules here
-        // Set the trick color if it hasn't been set yet
-        $currentTrickColor = self::getGameStateValue('trickColor');
-        if($currentTrickColor == 0)
-            self::setGameStateValue('trickColor', $currentCard['type']);
-        // And notify
-        self::notifyAllPlayers('playCard', clienttranslate('${player_name} plays ${value_displayed} ${color_displayed}'), [
-            'i18n' => ['color_displayed', 'value_displayed'],
-            'card_id' => $card_id,'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),'value' => $currentCard ['type_arg'],
-            'value_displayed' => $this->values_label [$currentCard ['type_arg']],'color' => $currentCard ['type'],
-            'color_displayed' => $this->colors [$currentCard ['type']] ['name']
+        if (is_null($card_id)) {
+            self::notifyAllPlayers('chooseNewTask', clienttranslate('${player_name} chooses no new task'), [
+                'card_id' => $card_id,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+            ]);
+            $this->gamestate->nextState('chooseNewTask');
+            return;
+        }
+
+        $card = $this->deck->getCard($card_id);
+        if (!$card || $card['location'] != 'hand' || $card['location_arg'] != $player_id) {
+            throw new BgaUserException(self::_('You do not have that card.'));
+        }
+        $this->deck->moveCard($card_id, 'task', $player_id);
+
+        $card_info = $this->cards[$card['type_arg']];
+
+        self::notifyAllPlayers('chooseNewTask', clienttranslate('${player_name} plays ${card_name} as a ${task_name} task'), [
+            'i18n' => ['card_name', 'task_name'],
+            'card_id' => $card_id,
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+            'card_name' => $card_info->name,
+            'task_name' => $card_info->material->task,
         ]);
-        // Next player
-        $this->gamestate->nextState('playCard');
+        $this->gamestate->nextState('chooseNewTask');
     }
 
         //////////////////////////////////////////////////////////////////////////////
@@ -290,27 +297,106 @@ class Mottainai extends Table {
      * Here, you can create methods defined as "game state actions" (see "action" property in states.inc.php).
      * The action method of state X is called everytime the current game state is set to X.
      */
-    function stNewHand() {
-        /* // Take back all cards (from any location => null) to deck */
-        /* $this->deck->moveAllCardsInLocation(null, "deck"); */
-        /* $this->deck->shuffle('deck'); */
-        /* // Deal 13 cards to each players */
-        /* // Create deck, shuffle it and give 13 initial cards */
-        /* $players = self::loadPlayersBasicInfos(); */
-        /* foreach ($players as $player_id => $player) { */
-        /*     $cards = $this->deck->pickCards(13, 'deck', $player_id); */
-        /*     // Notify player about his cards */
-        /*     self::notifyPlayer($player_id, 'newHand', '', ['cards' => $cards]); */
-        /* } */
-        /* self::setGameStateValue('alreadyPlayedHearts', 0); */
+
+    function stCheckHandSize() {
+        self::activeNextPlayer();
         $this->gamestate->nextState();
     }
 
-    function stNewTrick() {
-        // New trick: active the player who wins the last trick, or the player who own the club-2 card
-        // Reset trick color to 0 (= no color)
-        self::setGameStateInitialValue('trickColor', 0);
-        $this->gamestate->nextState();
+    function stDiscardOldTask() {
+        // Move current player's task to the floor
+        $player_id = self::getActivePlayerId();
+        $task_cards = $this->deck->getCardsInLocation('task', $player_id);
+        if (!$task_cards) {
+            $task_cards = $this->deck->getCardsInLocation('initial_task', $player_id);
+        }
+        if ($task_cards) {
+            $card = array_values($task_cards)[0];
+            $this->deck->moveCard($card['id'], 'floor');
+            $card_info = $this->cards[$card['type_arg']];
+            self::notifyAllPlayers('discardOldTask',
+                clienttranslate('${player_name} discards task ${card_name} to the floor'), [
+                'i18n' => ['card_name'],
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+                'player_id' => $player_id,
+                'card_id' => $card['id'],
+            ]);
+        }
+
+        if (intval($this->deck->countCardInLocation('hand', $player_id))) {
+            $this->gamestate->nextState('choose_new');
+        } else {
+            $this->gamestate->nextState('skip');
+        }
+    }
+
+    function stPerformNextPlayerTask() {
+        // Advance task player counter and perform task
+        $player_id = self::getActivePlayerId();
+        $players = self::loadPlayersBasicInfos();
+        $saved_value = $current_task_player_id = self::getGameStateValue('currentTaskPlayerId');
+
+        $found_task_to_perform = false;
+
+        while (!$found_task_to_perform) {
+            if ($current_task_player_id == $player_id) {
+                if ($saved_value != 0) {
+                    self::setGameStateValue('currentTaskPlayerId', 0);
+                }
+                $this->gamestate->nextState('done');
+                return;
+            }
+
+            if ($current_task_player_id == 0) {
+                $current_task_player_id = self::getPlayerAfter($player_id);
+            } else {
+                $current_task_player_id = self::getPlayerAfter($current_task_player_id);
+            }
+
+            if ($this->deck->getCardsInLocation('task', $current_task_player_id)) {
+                $found_task_to_perform = true;
+            }
+        }
+        self::setGameStateValue('currentTaskPlayerId', $current_task_player_id);
+        $this->gamestate->nextState('perform');
+    }
+
+    function stPerformTask() {
+        $player_id = self::getActivePlayerId();
+        $current_task_player_id = self::getGameStateValue('currentTaskPlayerId');
+        $players = self::loadPlayersBasicInfos();
+        $task_card = array_values($this->deck->getCardsInLocation('task', $current_task_player_id))[0];
+
+        // TODO: Calculate how many actions
+        // self.actions_to_perform = 1 + \
+        //     sum(1 for helper in self.active_player.helpers
+        //         if helper.material == task.material) + \
+        //         self.active_player.covered_helpers[task.material]
+        //
+
+        // def calculate_cover(self):
+        //     self.covered_helpers = Counter()
+        //     helpers_by_material = Counter(helper.material for helper in self.helpers)
+        //     gallery_works_by_material = Counter(work.material for work in self.gallery)
+        //     for material, count in helpers_by_material.items():
+        //         if count <= gallery_works_by_material[material] * material.value:
+        //             self.covered_helpers[material] = helpers_by_material[material]
+
+        //     self.covered_sales_value = Counter()
+        //     sales_by_material = Counter(helper.material for helper in self.sales)
+        //     gift_shop_works_by_material = Counter(work.material for work in self.gift_shop)
+        //     for material, count in sales_by_material.items():
+        //         if count <= gift_shop_works_by_material[material] * material.value:
+        //             self.covered_sales_value[material] = count * material.value
+        
+		// TODO: Save current action num and total actions
+        $actions = 1;
+        if ($actions) {
+            $this->gamestate->nextState('action');
+        } else {
+            $this->gamestate->nextState('done');
+        }
     }
 
     function stNextPlayer() {

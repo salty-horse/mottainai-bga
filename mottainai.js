@@ -49,8 +49,6 @@ function(dojo, declare) {
 			console.log( "Starting game setup" );
 			console.log( 'gamedatas', gamedatas );
 
-			this.gamedatas_local = dojo.clone(gamedatas);
-
 			this.setupPlayerTables();
 
 			// Setting up player boards
@@ -80,24 +78,24 @@ function(dojo, declare) {
 				return this.player_id;
 			}
 			if (!this.firstPlayerId) {
-				this.firstPlayerId = Object.keys(this.gamedatas_local.players)[0];
+				this.firstPlayerId = Object.keys(this.gamedatas.players)[0];
 			}
 			return this.firstPlayerId;
 		},
 
 		setupPlayerTables: function() {
 			dojo.create('div', {class: 'table whiteblock', innerHTML: '<h3>Floor</h3><div id="floor"></div>'}, 'player_table', 'last');
-			this.addCardElements(this.gamedatas_local.floor, document.getElementById('floor'));
+			this.addCardElements(this.gamedatas.floor, document.getElementById('floor'));
 
 			var current_player = this.getThisPlayerId();
-			for (var i = 0; i < this.gamedatas_local.playerorder.length; i++) {
-				var player = this.gamedatas_local.players[this.gamedatas_local.playerorder[i]];
+			for (var i = 0; i < this.gamedatas.playerorder.length; i++) {
+				var player = this.gamedatas.players[this.gamedatas.playerorder[i]];
 				dojo.place(this.format_block((current_player == player.id) ? 'jstpl_playerTable' : 'jstpl_otherPlayerTable', player), 'player_table', 'last');
 
 				if (current_player != player.id) {
 					document.getElementById('player_' + player.id + '_hand_size').innerHTML = player.hand_count;
 				} else {
-					this.addCardElements(this.gamedatas_local.hand, document.getElementById('player_' + player.id + '_hand'));
+					this.addCardElements(this.gamedatas.hand, document.getElementById('player_' + player.id + '_hand'));
 				}
 
 				if (player.initial_task) {
@@ -117,8 +115,8 @@ function(dojo, declare) {
 		},
 
 		createCardElement: function(cardObj) {
-			var card = this.gamedatas_local.cards[cardObj.type_arg];
-			var material = this.gamedatas_local.materials[card.material];
+			var card = this.gamedatas.cards[cardObj.type_arg];
+			var material = this.gamedatas.materials[card.material];
 			var elem = dojo.create('div', {
 				id: 'card_' + cardObj.id,
 				class: 'card',
@@ -141,25 +139,23 @@ function(dojo, declare) {
 		// onEnteringState: this method is called each time we are entering into a new game state.
 		//				  You can use this method to perform some user interface changes at this moment.
 		//
-		onEnteringState: function( stateName, args )
-		{
-			console.log( 'Entering state: '+stateName );
+		onEnteringState: function(stateName, args) {
+			this.connections = [];
+			this.selectableElements = [];
+			var _this = this;
+			console.log('Entering state', stateName, args);
+			var playerId = this.getThisPlayerId();
 
-			switch( stateName )
-			{
+			switch (stateName) {
+			case 'chooseNewTask':
+				if (!this.isCurrentPlayerActive())
+					break;
 
-			/* Example:
-
-			case 'myGameState':
-
-				// Show some HTML block at this game state
-				dojo.style( 'my_html_block_id', 'display', 'block' );
-
-				break;
-		   */
-
-
-			case 'dummmy':
+				dojo.query('#player_' + playerId + '_hand > .card').forEach(function(node, index, arr) {
+					_this.selectableElements.push(node);
+					node.classList.add('selectable');
+					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingTask'));
+				});
 				break;
 			}
 		},
@@ -167,52 +163,28 @@ function(dojo, declare) {
 		// onLeavingState: this method is called each time we are leaving a game state.
 		//				 You can use this method to perform some user interface changes at this moment.
 		//
-		onLeavingState: function( stateName )
-		{
-			console.log( 'Leaving state: '+stateName );
-
-			switch( stateName )
-			{
-
-			/* Example:
-
-			case 'myGameState':
-
-				// Hide the HTML block we are displaying only during this game state
-				dojo.style( 'my_html_block_id', 'display', 'none' );
-
-				break;
-		   */
-
-
-			case 'dummmy':
-				break;
-			}
+		onLeavingState: function(stateName) {
+			console.log('Leaving state:', stateName);
+			this.selectableElements.forEach(function(elem) {
+				elem.classList.remove('selectable');
+			});
+			this.connections.forEach(function(handle) {
+				dojo.disconnect(handle);
+			});
 		},
 
 		// onUpdateActionButtons: in this method you can manage "action buttons" that are displayed in the
 		//						action status bar (ie: the HTML links in the status bar).
 		//
-		onUpdateActionButtons: function( stateName, args )
-		{
-			console.log( 'onUpdateActionButtons: '+stateName );
+		onUpdateActionButtons: function( stateName, args ) {
+			console.log('onUpdateActionButtons:', stateName);
 
-			if( this.isCurrentPlayerActive() )
+			if(this.isCurrentPlayerActive())
 			{
-				switch( stateName )
-				{
-/*
-				 Example:
-
-				 case 'myGameState':
-
-					// Add 3 action buttons in the action status bar:
-
-					this.addActionButton( 'button_1_id', _('Button 1 label'), 'onMyMethodToCall1' );
-					this.addActionButton( 'button_2_id', _('Button 2 label'), 'onMyMethodToCall2' );
-					this.addActionButton( 'button_3_id', _('Button 3 label'), 'onMyMethodToCall3' );
-					break;
-*/
+				switch(stateName) {
+				case 'chooseNewTask':
+				   this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
+				   break;
 				}
 			}
 		},
@@ -226,6 +198,26 @@ function(dojo, declare) {
 			script.
 
 		*/
+
+		ajaxAction: function (action, args, func, err, lock) {
+			if (!args) {
+				args = [];
+			}
+			delete args.action;
+			if (!args.hasOwnProperty('lock') || args.lock) {
+				args.lock = true;
+			} else {
+				delete args.lock;
+			}
+			if (typeof func == "undefined" || func == null) {
+				var self = this;
+				func = function (result) {
+				};
+			}
+
+			var name = this.game_name;
+			this.ajaxcall("/" + name + "/" + name + "/" + action + ".html", args, this, func, err);
+		},
 
 
 		///////////////////////////////////////////////////
@@ -242,39 +234,21 @@ function(dojo, declare) {
 
 		*/
 
-		/* Example:
-
-		onMyMethodToCall1: function( evt )
-		{
-			console.log( 'onMyMethodToCall1' );
-
-			// Preventing default browser reaction
-			dojo.stopEvent( evt );
-
-			// Check that this action is possible (see "possibleactions" in states.inc.php)
-			if( ! this.checkAction( 'myAction' ) )
-			{   return; }
-
-			this.ajaxcall( "/mottainai/mottainai/myAction.html", {
-																	lock: true,
-																	myArgument1: arg1,
-																	myArgument2: arg2,
-																	...
-																 },
-						 this, function( result ) {
-
-							// What to do after the server call if it succeeded
-							// (most of the time: nothing)
-
-						 }, function( is_error) {
-
-							// What to do after the server call in anyway (success or failure)
-							// (most of the time: nothing)
-
-						 } );
+		doSkipNewTask: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseNewTask')) return;
+			this.ajaxAction('chooseNewTask');
 		},
 
-		*/
+		onChoosingTask: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseNewTask')) return;
+			var card_id = dojo.attr(event.target, 'id').split('_')[1];
+			console.log('Clicked card', card_id);
+			this.ajaxAction('chooseNewTask', {
+				id: card_id,
+			});
+		},
 
 
 		///////////////////////////////////////////////////
@@ -293,34 +267,22 @@ function(dojo, declare) {
 		{
 			console.log('notifications subscriptions setup');
 
-			// TODO: here, associate your game notifications with local methods
-
-			// Example 1: standard notification handling
-			// dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
-
-			// Example 2: standard notification handling + tell the user interface to wait
-			//			during 3 seconds after calling the method in order to let the players
-			//			see what is happening in the game.
-			// dojo.subscribe( 'cardPlayed', this, "notif_cardPlayed" );
-			// this.notifqueue.setSynchronous( 'cardPlayed', 3000 );
-			//
+			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
+			this.notifqueue.setSynchronous('discardOldTask', 1000);
 		},
 
-		// TODO: from this point and below, you can write your game notifications handling methods
+		notif_discardOldTask: function(notif) {
+			console.log('notif_discardOldTask');
+			console.log(notif);
+			// We received a new full hand of 13 cards.
+			// this.playerHand.removeAll();
 
-		/*
-		Example:
-
-		notif_cardPlayed: function( notif )
-		{
-			console.log( 'notif_cardPlayed' );
-			console.log( notif );
-
-			// Note: notif.args contains the arguments specified during you "notifyAllPlayers" / "notifyPlayer" PHP call
-
-			// TODO: play the card in the user interface.
+			// for ( var i in notif.args.cards) {
+			//	 var card = notif.args.cards[i];
+			//	 var color = card.type;
+			//	 var value = card.type_arg;
+			//	 this.playerHand.addToStockWithId(this.getCardUniqueId(color, value), card.id);
+			// }
 		},
-
-		*/
-   });
+	});
 });

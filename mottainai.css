@@ -46,6 +46,15 @@
     display: inline-block;
     margin-left: 0.5em;
     margin-right: 0.5em;
+	position: relative;
+	top: 0;
+	left: 0;
+}
+.card.selectable {
+	cursor: pointer;
+    border: 4px solid yellow;
+    margin-top: -4px;
+    margin-bottom: -4px;
 }
 
 .table_label {

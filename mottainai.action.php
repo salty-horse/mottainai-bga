@@ -35,8 +35,12 @@ class action_mottainai extends APP_GameAction
         }
     }
     
-    // TODO: defines your action entry points there
-    
+    public function chooseNewTask() {
+        self::setAjaxMode();
+        $card_id = self::getArg("id", AT_posint);
+        $this->game->chooseNewTask($card_id);
+        self::ajaxResponse();
+    }
     
     /*
     

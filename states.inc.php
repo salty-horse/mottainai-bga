@@ -50,71 +50,109 @@
 //    !! It is not a good idea to modify this file when a game is running !!
 
 
-$machinestates = array(
+$machinestates = [
 
-        // The initial state. Please do not modify.
-        1 => array(
-                "name" => "gameSetup",
-                "description" => clienttranslate("Game setup"),
-                "type" => "manager",
-                "action" => "stGameSetup",
-                "transitions" => array( "" => 20 )
-        ),
+    // The initial state. Please do not modify.
+    1 => [
+        'name' => 'gameSetup',
+        'description' => clienttranslate('Game setup'),
+        'type' => 'manager',
+        'action' => 'stGameSetup',
+        'transitions' => ['' => STATE_DISCARD_OLD_TASK]
+    ],
+
+    STATE_CHECK_HAND_SIZE => [
+        'name' => 'checkHandSize',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stCheckHandSize',
+        'transitions' => ['ok' => STATE_DISCARD_OLD_TASK] // TODO
+    ],
+
+    STATE_DISCARD_OLD_TASK => [
+        'name' => 'discardOldTask',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stDiscardOldTask',
+        'transitions' => ['choose_new' => STATE_CHOOSE_NEW_TASK, 'skip' => STATE_PERFORM_NEXT_PLAYER_TASK]
+    ],
+
+    STATE_CHOOSE_NEW_TASK => [
+        'name' => 'chooseNewTask',
+		'description' => clienttranslate('${actplayer} may choose a new task'),
+		'descriptionmyturn' => clienttranslate('${you} may choose a new task'),
+        'type' => 'activeplayer',
+        'possibleactions' => ['chooseNewTask'],
+        'transitions' => ['chooseNewTask' => STATE_PERFORM_NEXT_PLAYER_TASK]
+    ],
+
+    STATE_PERFORM_NEXT_PLAYER_TASK => [
+        'name' => 'performNextPlayerTask',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stPerformNextPlayerTask',
+        'transitions' => [
+            /* 'done' => STATE_NIGHT_EFFECTS, */
+            'done' => STATE_CHECK_HAND_SIZE,
+            'perform' => STATE_PERFORM_TASK,
+        ],
+    ],
+
+    STATE_PERFORM_TASK => [
+        'name' => 'performTask',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stPerformTask',
+        'transitions' => [
+            /* 'done' => STATE_NIGHT_EFFECTS, */
+            'done' => STATE_CHECK_HAND_SIZE,
+            /* 'action' => STATE_PERFORM_ACTION, */
+            'action' => STATE_CHECK_HAND_SIZE,
+        ],
+    ],
+
+    // Trick
+
+    30 => [
+        'name' => 'newTrick',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stNewTrick',
+        'transitions' => ['' => 31]
+    ],
+    31 => [
+        'name' => 'playerTurn',
+        'description' => clienttranslate('${actplayer} must play a card'),
+        'descriptionmyturn' => clienttranslate('${you} must play a card'),
+        'type' => 'activeplayer',
+        'possibleactions' => ['playCard'],
+        'transitions' => ['playCard' => 32]
+    ],
+    32 => [
+        'name' => 'nextPlayer',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stNextPlayer',
+        'transitions' => ['nextPlayer' => 31, 'nextTrick' => 30, 'endHand' => 40]
+    ],
 
 
-        /// New hand
-        20 => array(
-                "name" => "newHand",
-                "description" => "",
-                "type" => "game",
-                "action" => "stNewHand",
-                "updateGameProgression" => true,
-                "transitions" => array( "" => 30 )
-        ),
+    // End of the hand (scoring, etc...)
+    40 => [
+        'name' => 'endHand',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stEndHand',
+        'transitions' => ['nextHand' => 20, 'endGame' => STATE_GAME_END]
+    ],
 
-        // Trick
-
-        30 => array(
-                "name" => "newTrick",
-                "description" => "",
-                "type" => "game",
-                "action" => "stNewTrick",
-                "transitions" => array( "" => 31 )
-        ),
-        31 => array(
-                "name" => "playerTurn",
-                "description" => clienttranslate('${actplayer} must play a card'),
-                "descriptionmyturn" => clienttranslate('${you} must play a card'),
-                "type" => "activeplayer",
-                "possibleactions" => array( "playCard" ),
-                "transitions" => array( "playCard" => 32 )
-        ),
-        32 => array(
-                "name" => "nextPlayer",
-                "description" => "",
-                "type" => "game",
-                "action" => "stNextPlayer",
-                "transitions" => array( "nextPlayer" => 31, "nextTrick" => 30, "endHand" => 40 )
-        ),
-
-
-        // End of the hand (scoring, etc...)
-        40 => array(
-                "name" => "endHand",
-                "description" => "",
-                "type" => "game",
-                "action" => "stEndHand",
-                "transitions" => array( "nextHand" => 20, "endGame" => STATE_GAME_END )
-        ),
-
-        // Final state.
-        // Please do not modify.
-        STATE_GAME_END => array(
-                "name" => "gameEnd",
-                "description" => clienttranslate("End of game"),
-                "type" => "manager",
-                "action" => "stGameEnd",
-                "args" => "argGameEnd"
-        )
-
-);
+    // Final state.
+    // Please do not modify.
+    STATE_GAME_END => [
+        'name' => 'gameEnd',
+        'description' => clienttranslate('End of game'),
+        'type' => 'manager',
+        'action' => 'stGameEnd',
+        'args' => 'argGameEnd'
+    ],
+];
