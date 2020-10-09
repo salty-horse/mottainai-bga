@@ -21,29 +21,6 @@ require_once(APP_GAMEMODULE_PATH.'module/table/table.game.php');
 
 require_once('modules/MOT_Utils.php');
 
-
-// States
-define('STATE_CHECK_HAND_SIZE', 2);
-define('STATE_REDUCE_HAND', 3);
-define('STATE_MORNING_EFFECTS', 4);
-define('STATE_DISCARD_OLD_TASK', 5);
-define('STATE_CHOOSE_NEW_TASK', 6);
-define('STATE_PERFORM_NEXT_PLAYER_TASK', 7);
-define('STATE_PERFORM_TASK', 9);
-define('STATE_PERFORM_ACTION', 10);
-define('STATE_PERFORM_CLERK', 11);
-define('STATE_PERFORM_MONK', 12);
-define('STATE_PERFORM_TAILOR', 13);
-define('STATE_PERFORM_POTTER', 14);
-define('STATE_PERFORM_SMITH', 15);
-define('STATE_REVEAL_CARDS', 16);
-define('STATE_PERFORM_CRAFT', 17);
-define('STATE_CHOOSE_COMPLETED_WORK_POS', 18);
-define('STATE_PLACE_COMPLETED_WORK', 19);
-define('STATE_NIGHT_EFFECTS', 20);
-define('STATE_DRAW_WAITING_AREA', 21);
-define('STATE_GAME_END', 99);
-
 class Mottainai extends Table {
 
     function __construct() {
@@ -57,10 +34,10 @@ class Mottainai extends Table {
         
         parent::__construct();
         self::initGameStateLabels([
-            "currentTaskPlayerId" => 10,
-            "trickColor" => 11,
-            "alreadyPlayedHearts" => 12,
-            "wingSizeEndGameTrigger" => 100,
+            "currentTaskPlayerId" => 10, // The player ID whose task is currently being performed
+            "currentTask" => 11,
+            "currentTaskActionCurrent" => 12,
+            "currentTaskActionTotal" => 13,
         ]);
         
         $this->deck = self::getNew("module.common.deck");
@@ -105,14 +82,10 @@ class Mottainai extends Table {
 
         // Init global values with their initial values
 
-        // The player ID whose task is currently being performed
         self::setGameStateInitialValue('currentTaskPlayerId', 0);
-
-        // Set current trick color to zero (= no trick color)
-        self::setGameStateInitialValue('trickColor', 0);
-
-        // Mark if we already played some heart during this hand
-        self::setGameStateInitialValue('alreadyPlayedHearts', 0);
+        self::setGameStateInitialValue('currentTask', 0);
+        self::setGameStateInitialValue('currentTaskActionCurrent', 0);
+        self::setGameStateInitialValue('currentTaskActionTotal', 0);
 
         // Init game statistics
         // (note: statistics are defined in your stats.inc.php file)
@@ -197,7 +170,7 @@ class Mottainai extends Table {
             $player['waiting_area_count'] = intval($this->deck->countCardInLocation('waiting_area', $player_id));
             $player['hand_count'] = intval($this->deck->countCardInLocation('hand', $player_id));
             // TODO: Store revealed cards in hand_revealed location
-			// TODO: Return current task player, action num, total action count
+            // TODO: Return current task player, action num, total action count
         }
 
         // Material and card database
@@ -251,7 +224,6 @@ class Mottainai extends Table {
         $player_id = self::getActivePlayerId();
         if (is_null($card_id)) {
             self::notifyAllPlayers('chooseNewTask', clienttranslate('${player_name} chooses no new task'), [
-                'card_id' => $card_id,
                 'player_id' => $player_id,
                 'player_name' => self::getActivePlayerName(),
             ]);
@@ -270,6 +242,7 @@ class Mottainai extends Table {
         self::notifyAllPlayers('chooseNewTask', clienttranslate('${player_name} plays ${card_name} as a ${task_name} task'), [
             'i18n' => ['card_name', 'task_name'],
             'card_id' => $card_id,
+            'card_type' => $card['type_arg'],
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
             'card_name' => $card_info->name,
@@ -278,22 +251,28 @@ class Mottainai extends Table {
         $this->gamestate->nextState('chooseNewTask');
     }
 
-        //////////////////////////////////////////////////////////////////////////////
-        //////////// Game state arguments
-        ////////////
-        /*
+    //////////////////////////////////////////////////////////////////////////////
+    //////////// Game state arguments
+    ////////////
+    /*
      * Here, you can create methods defined as "game state arguments" (see "args" property in states.inc.php).
      * These methods function is to return some additional information that is specific to the current
      * game state.
      */
-    function argGiveCards() {
-        return [];
+
+    function argPerformAction() {
+        $current_task = self::getGameStateValue('currentTask');
+        return [
+            'task' => $this->materials[$current_task]->task,
+            'action_count' => self::getGameStateValue('currentTaskActionCurrent'),
+            'action_total' => self::getGameStateValue('currentTaskActionTotal'),
+        ];
     }
 
-        //////////////////////////////////////////////////////////////////////////////
-        //////////// Game state actions
-        ////////////
-        /*
+    //////////////////////////////////////////////////////////////////////////////
+    //////////// Game state actions
+    ////////////
+    /*
      * Here, you can create methods defined as "game state actions" (see "action" property in states.inc.php).
      * The action method of state X is called everytime the current game state is set to X.
      */
@@ -307,12 +286,12 @@ class Mottainai extends Table {
         // Move current player's task to the floor
         $player_id = self::getActivePlayerId();
         $task_cards = $this->deck->getCardsInLocation('task', $player_id);
-		$initial = false;
+        $initial = false;
         if (!$task_cards) {
             $task_cards = $this->deck->getCardsInLocation('initial_task', $player_id);
-			if ($task_cards) {
-				$initial = true;
-			}
+            if ($task_cards) {
+                $initial = true;
+            }
         }
         if ($task_cards) {
             $card = array_values($task_cards)[0];
@@ -325,7 +304,8 @@ class Mottainai extends Table {
                 'card_name' => $card_info->name,
                 'player_id' => $player_id,
                 'card_id' => $card['id'],
-				'initial' => $initial,
+                'card_type' => $card['type_arg'],
+                'initial' => $initial,
             ]);
         }
 
@@ -342,9 +322,9 @@ class Mottainai extends Table {
         $players = self::loadPlayersBasicInfos();
         $saved_value = $current_task_player_id = self::getGameStateValue('currentTaskPlayerId');
 
-        $found_task_to_perform = false;
+        $found_task = null;
 
-        while (!$found_task_to_perform) {
+        while (!$found_task) {
             if ($current_task_player_id == $player_id) {
                 if ($saved_value != 0) {
                     self::setGameStateValue('currentTaskPlayerId', 0);
@@ -359,11 +339,11 @@ class Mottainai extends Table {
                 $current_task_player_id = self::getPlayerAfter($current_task_player_id);
             }
 
-            if ($this->deck->getCardsInLocation('task', $current_task_player_id)) {
-                $found_task_to_perform = true;
-            }
+            $found_task = $this->deck->getCardsInLocation('task', $current_task_player_id);
         }
         self::setGameStateValue('currentTaskPlayerId', $current_task_player_id);
+        $task_card = $this->cards[array_values($found_task)[0]['type_arg']];
+        self::setGameStateValue('currentTask', $task_card->material->id);
         $this->gamestate->nextState('perform');
     }
 
@@ -394,14 +374,28 @@ class Mottainai extends Table {
         //     for material, count in sales_by_material.items():
         //         if count <= gift_shop_works_by_material[material] * material.value:
         //             self.covered_sales_value[material] = count * material.value
-        
-		// TODO: Save current action num and total actions
         $actions = 1;
+
+        self::setGameStateValue('currentTaskActionCurrent', 0);
+        self::setGameStateValue('currentTaskActionTotal', $actions);
+
         if ($actions) {
-            $this->gamestate->nextState('action');
+            $this->gamestate->nextState('perform');
         } else {
             $this->gamestate->nextState('done');
         }
+    }
+
+    function stPerformNextAction() {
+        $current = self::getGameStateValue('currentTaskActionCurrent');
+        $total = self::getGameStateValue('currentTaskActionTotal');
+        $current += 1;
+        if ($current > $total) {
+            $this->gamestate->nextState('done');
+            return;
+        }
+        self::setGameStateValue('currentTaskActionCurrent', $current);
+        $this->gamestate->nextState('perform');
     }
 
     function stNextPlayer() {
@@ -411,7 +405,6 @@ class Mottainai extends Table {
             $cards_on_table = $this->deck->getCardsInLocation('cardsontable');
             $best_value = 0;
             $best_value_player_id = null;
-            $currentTrickColor = self::getGameStateValue('trickColor');
             foreach ($cards_on_table as $card) {
                 // Note: type = card color
                 if ($card ['type'] == $currentTrickColor) {

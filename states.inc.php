@@ -49,6 +49,33 @@
 
 //    !! It is not a good idea to modify this file when a game is running !!
 
+// States
+if (!defined('STATE_END_GAME')) {
+
+define('STATE_CHECK_HAND_SIZE', 2);
+define('STATE_REDUCE_HAND', 3);
+define('STATE_MORNING_EFFECTS', 4);
+define('STATE_DISCARD_OLD_TASK', 5);
+define('STATE_CHOOSE_NEW_TASK', 6);
+define('STATE_PERFORM_NEXT_PLAYER_TASK', 7);
+define('STATE_PERFORM_TASK', 9);
+define('STATE_PERFORM_NEXT_ACTION', 10);
+define('STATE_PERFORM_ACTION', 11);
+define('STATE_PERFORM_CLERK', 12);
+define('STATE_PERFORM_MONK', 13);
+define('STATE_PERFORM_TAILOR', 14);
+define('STATE_PERFORM_POTTER', 15);
+define('STATE_PERFORM_SMITH', 16);
+define('STATE_REVEAL_CARDS', 17);
+define('STATE_PERFORM_CRAFT', 18);
+define('STATE_CHOOSE_COMPLETED_WORK_POS', 19);
+define('STATE_PLACE_COMPLETED_WORK', 20);
+define('STATE_NIGHT_EFFECTS', 21);
+define('STATE_DRAW_WAITING_AREA', 22);
+define('STATE_END_GAME', 99);
+
+}
+
 
 $machinestates = [
 
@@ -106,9 +133,29 @@ $machinestates = [
         'transitions' => [
             /* 'done' => STATE_NIGHT_EFFECTS, */
             'done' => STATE_CHECK_HAND_SIZE,
-            /* 'action' => STATE_PERFORM_ACTION, */
-            'action' => STATE_CHECK_HAND_SIZE,
+            'perform' => STATE_PERFORM_NEXT_ACTION,
         ],
+    ],
+
+    STATE_PERFORM_NEXT_ACTION => [
+        'name' => 'performNextAction',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stPerformNextAction',
+        'transitions' => [
+            'done' => STATE_PERFORM_NEXT_PLAYER_TASK,
+            'perform' => STATE_PERFORM_ACTION,
+        ],
+    ],
+
+    STATE_PERFORM_ACTION => [
+        'name' => 'performAction',
+		'description' => clienttranslate('${actplayer} must perform ${task} action ${action_count} of ${action_total}'),
+		'descriptionmyturn' => clienttranslate('${you} must perform ${task} action ${action_count} of ${action_total}'),
+        'type' => 'activeplayer',
+        'args' => 'argPerformAction',
+        'possibleactions' => ['next'],
+        'transitions' => ['next' => STATE_PERFORM_NEXT_ACTION]
     ],
 
     // Trick
@@ -143,12 +190,12 @@ $machinestates = [
         'description' => '',
         'type' => 'game',
         'action' => 'stEndHand',
-        'transitions' => ['nextHand' => 20, 'endGame' => STATE_GAME_END]
+        'transitions' => ['nextHand' => 20, 'endGame' => STATE_END_GAME]
     ],
 
     // Final state.
     // Please do not modify.
-    STATE_GAME_END => [
+    STATE_END_GAME => [
         'name' => 'gameEnd',
         'description' => clienttranslate('End of game'),
         'type' => 'manager',

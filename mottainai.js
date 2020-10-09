@@ -96,12 +96,6 @@ function(dojo, declare) {
 				var player = this.gamedatas.players[player_id];
 				dojo.place(this.format_block((current_player == player.id) ? 'jstpl_playerTable' : 'jstpl_otherPlayerTable', player), 'player_table', 'last');
 
-				if (current_player != player.id) {
-					document.getElementById('player_' + player.id + '_hand_size').innerHTML = player.hand_count;
-				} else {
-					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, 'player_' + player.id + '_hand');
-				}
-
 				if (player.initial_task) {
 					player.task = {'9999': {id: '9999', type_arg: '9999'}};
 				} else if (player.task) {
@@ -113,7 +107,7 @@ function(dojo, declare) {
 				}
 
 				// TODO: Show opponent's revealed hand
-				this.players[player_id] = {
+				this.players[player.id] = {
 					task: this.createAndPopulateStock(player.task, 'player_' + player.id + '_task'),
 					gallery: this.createAndPopulateStock(player.gallery, 'player_' + player.id + '_gallery'),
 					gift_shop: this.createAndPopulateStock(player.gift_shop, 'player_' + player.id + '_gift_shop'),
@@ -121,6 +115,15 @@ function(dojo, declare) {
 					craft_bench: this.createAndPopulateStock(player.craft_bench, 'player_' + player.id + '_craft_bench'),
 					sales: this.createAndPopulateStock(player.sales, 'player_' + player.id + '_sales'),
 				}
+
+				if (current_player != player_id) {
+					this.players[player_id].hand_size = new ebg.counter();
+					this.players[player_id].hand_size.create('player_' + player_id + '_hand_size');
+					this.players[player_id].hand_size.setValue(player.hand_count);
+				} else {
+					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, 'player_' + player.id + '_hand');
+				}
+
 				document.getElementById('player_' + player.id + '_waiting_area').innerHTML = player.waiting_area_count;
 			}
 		},
@@ -312,30 +315,34 @@ function(dojo, declare) {
 
 			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
 			this.notifqueue.setSynchronous('discardOldTask', 1000);
+			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
 		},
 
 		notif_discardOldTask: function(notif) {
-			console.log('notif_discardOldTask');
 			var card_id = notif.args.card_id;
+			var card_type = notif.args.card_type;
 			var player_id = notif.args.player_id;
-			console.log('addToStockWithId', this.gamedatas.cards[card_id].id, card_id);
-			this.floor.addToStockWithId(this.gamedatas.cards[card_id].id, card_id);
 			if (!notif.args.initial) {
-				console.log('removeFromStockById', card_id);
 				this.players[player_id].task.removeFromStockById(card_id);
 			} else {
-				console.log('removeFromStockById', '9999');
 				this.players[player_id].task.removeFromStockById('9999');
 			}
-			// We received a new full hand of 13 cards.
-			// this.playerHand.removeAll();
+			this.floor.addToStockWithId(card_type, card_id, this.players[player_id].task.container_div);
+		},
 
-			// for ( var i in notif.args.cards) {
-			//	 var card = notif.args.cards[i];
-			//	 var color = card.type;
-			//	 var value = card.type_arg;
-			//	 this.playerHand.addToStockWithId(this.getCardUniqueId(color, value), card.id);
-			// }
+		notif_chooseNewTask: function(notif) {
+			console.log('notif_chooseNewTask', notif.args.card_id);
+			var card_id = notif.args.card_id;
+			if (!card_id) return;
+			var card_type = notif.args.card_type;
+			var player_id = notif.args.player_id;
+			if (player_id == this.getThisPlayerId()) {
+				this.playerHand.removeFromStockById(card_id);
+				this.players[player_id].task.addToStockWithId(card_type, card_id, this.playerHand.container_div);
+			} else {
+				this.players[player_id].hand_size.incValue(-1);
+				this.players[player_id].task.addToStockWithId(card_type, card_id);
+			}
 		},
 	});
 });
