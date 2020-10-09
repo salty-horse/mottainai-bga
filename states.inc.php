@@ -120,7 +120,7 @@ $machinestates = [
         'action' => 'stPerformNextPlayerTask',
         'transitions' => [
             /* 'done' => STATE_NIGHT_EFFECTS, */
-            'done' => STATE_CHECK_HAND_SIZE,
+            'done' => STATE_DRAW_WAITING_AREA,
             'perform' => STATE_PERFORM_TASK,
         ],
     ],
@@ -132,7 +132,7 @@ $machinestates = [
         'action' => 'stPerformTask',
         'transitions' => [
             /* 'done' => STATE_NIGHT_EFFECTS, */
-            'done' => STATE_CHECK_HAND_SIZE,
+            'done' => STATE_DRAW_WAITING_AREA,
             'perform' => STATE_PERFORM_NEXT_ACTION,
         ],
     ],
@@ -156,6 +156,16 @@ $machinestates = [
         'args' => 'argPerformAction',
         'possibleactions' => ['chooseAction'],
         'transitions' => ['next' => STATE_PERFORM_NEXT_ACTION]
+    ],
+
+    STATE_DRAW_WAITING_AREA => [
+        'name' => 'drawWaitingArea',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stDrawWaitingArea',
+        'transitions' => [
+            '' => STATE_CHECK_HAND_SIZE,
+        ],
     ],
 
     // Trick

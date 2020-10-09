@@ -340,6 +340,8 @@ class Mottainai extends Table {
 
         $found_task = null;
 
+        // TODO: If the active player has no task, it becomes a prayer
+
         while (!$found_task) {
             if ($current_task_player_id == $player_id) {
                 if ($saved_value != 0) {
@@ -412,6 +414,29 @@ class Mottainai extends Table {
         }
         self::setGameStateValue('currentTaskActionCurrent', $current);
         $this->gamestate->nextState('perform');
+    }
+
+    function stDrawWaitingArea() {
+        $player_id = self::getActivePlayerId();
+        $cards_in_waiting_area = $this->deck->getCardsInLocation('waiting_area', $player_id);
+        if (!$cards_in_waiting_area) {
+            $this->gamestate->nextState();
+            return;
+        }
+
+        moveAllCardsInLocation('waiting_area', 'hand', $player_id, $player_id);
+        self::notifyAllPlayers('drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+            'card_count' => count($cards_in_waiting_area),
+        ]);
+
+        // TODO:
+        // Notify active player with the actual cards
+        // Notify other players with number of cards
+        // Notify spectators
+
+        $this->gamestate->nextState();
     }
 
     function stNextPlayer() {
