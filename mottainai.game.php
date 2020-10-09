@@ -251,6 +251,22 @@ class Mottainai extends Table {
         $this->gamestate->nextState('chooseNewTask');
     }
 
+    function chooseAction($action, $work_to_create, $cards_to_reveal) {
+        self::checkAction('chooseAction');
+        $player_id = self::getActivePlayerId();
+        if ($action == 'pray') {
+            $this->deck->pickCardForLocation('deck', 'waiting_area', $player_id);
+        } else {
+            // TODO
+            throw new BgaUserException(self::_('Unsupported action.'));
+        }
+        self::notifyAllPlayers('chooseActionPray', clienttranslate('${player_name} prays'), [
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+        ]);
+        $this->gamestate->nextState('next');
+    }
+
     //////////////////////////////////////////////////////////////////////////////
     //////////// Game state arguments
     ////////////

@@ -124,7 +124,9 @@ function(dojo, declare) {
 					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, 'player_' + player.id + '_hand');
 				}
 
-				document.getElementById('player_' + player.id + '_waiting_area').innerHTML = player.waiting_area_count;
+				this.players[player_id].waiting_area = new ebg.counter();
+				this.players[player_id].waiting_area.create('player_' + player_id + '_waiting_area');
+				this.players[player_id].waiting_area.setValue(player.waiting_area_count);
 			}
 		},
 
@@ -231,6 +233,9 @@ function(dojo, declare) {
 				case 'chooseNewTask':
 				   this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
 				   break;
+				case 'chooseAction':
+				   this.addActionButton('button_1_id', _('Pray'), 'doPray');
+				   break;
 				}
 			}
 		},
@@ -290,9 +295,17 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseNewTask')) return;
 			var card_id = dojo.attr(event.target, 'id').split('_').pop();
-			console.log('Clicked card', card_id);
 			this.ajaxAction('chooseNewTask', {
 				id: card_id,
+			});
+		},
+
+		doPray: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseAction')) return;
+			debugger;
+			this.ajaxAction('chooseAction', {
+				action_: 'pray',
 			});
 		},
 
@@ -316,6 +329,7 @@ function(dojo, declare) {
 			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
 			this.notifqueue.setSynchronous('discardOldTask', 1000);
 			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
+			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
 		},
 
 		notif_discardOldTask: function(notif) {
@@ -331,7 +345,6 @@ function(dojo, declare) {
 		},
 
 		notif_chooseNewTask: function(notif) {
-			console.log('notif_chooseNewTask', notif.args.card_id);
 			var card_id = notif.args.card_id;
 			if (!card_id) return;
 			var card_type = notif.args.card_type;
@@ -343,6 +356,11 @@ function(dojo, declare) {
 				this.players[player_id].hand_size.incValue(-1);
 				this.players[player_id].task.addToStockWithId(card_type, card_id);
 			}
+		},
+
+		notif_chooseActionPray: function(notif) {
+			var player_id = notif.args.player_id;
+			this.players[player_id].waiting_area.incValue(1);
 		},
 	});
 });
