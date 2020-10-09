@@ -18,7 +18,8 @@
 define([
 	"dojo","dojo/_base/declare",
 	"ebg/core/gamegui",
-	"ebg/counter"
+	"ebg/counter",
+	"ebg/stock",
 ],
 function(dojo, declare) {
 	return declare("bgagame.mottainai", ebg.core.gamegui, {
@@ -85,32 +86,74 @@ function(dojo, declare) {
 
 		setupPlayerTables: function() {
 			dojo.create('div', {class: 'table whiteblock', innerHTML: '<h3>Floor</h3><div id="floor"></div>'}, 'player_table', 'last');
-			this.addCardElements(this.gamedatas.floor, document.getElementById('floor'));
+			this.floor = this.createAndPopulateStock(this.gamedatas.floor, 'floor'),
+
+			this.players = [];
 
 			var current_player = this.getThisPlayerId();
 			for (var i = 0; i < this.gamedatas.playerorder.length; i++) {
-				var player = this.gamedatas.players[this.gamedatas.playerorder[i]];
+				var player_id = this.gamedatas.playerorder[i]
+				var player = this.gamedatas.players[player_id];
 				dojo.place(this.format_block((current_player == player.id) ? 'jstpl_playerTable' : 'jstpl_otherPlayerTable', player), 'player_table', 'last');
 
 				if (current_player != player.id) {
 					document.getElementById('player_' + player.id + '_hand_size').innerHTML = player.hand_count;
 				} else {
-					this.addCardElements(this.gamedatas.hand, document.getElementById('player_' + player.id + '_hand'));
+					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, 'player_' + player.id + '_hand');
 				}
 
 				if (player.initial_task) {
-					document.getElementById('player_' + player.id + '_task').innerHTML = 'Hidden';
+					player.task = {'9999': {id: '9999', type_arg: '9999'}};
 				} else if (player.task) {
-					document.getElementById('player_' + player.id + '_task').appendChild(this.createCardElement(player.task));
+					var task = player.task;
+					player.task = {};
+					player.task[task.id] = task;
+				} else {
+					player.task = {};
 				}
 
-				// TODO: Show opponent's revelaed hand
-				this.addCardElements(player.gallery, document.getElementById('player_' + player.id + '_gallery'));
-				this.addCardElements(player.gift_shop, document.getElementById('player_' + player.id + '_gift_shop'));
-				this.addCardElements(player.helpers, document.getElementById('player_' + player.id + '_helpers'));
-				this.addCardElements(player.craft_bench, document.getElementById('player_' + player.id + '_craft_bench'));
-				this.addCardElements(player.sales, document.getElementById('player_' + player.id + '_sales'));
+				// TODO: Show opponent's revealed hand
+				this.players[player_id] = {
+					task: this.createAndPopulateStock(player.task, 'player_' + player.id + '_task'),
+					gallery: this.createAndPopulateStock(player.gallery, 'player_' + player.id + '_gallery'),
+					gift_shop: this.createAndPopulateStock(player.gift_shop, 'player_' + player.id + '_gift_shop'),
+					helpers: this.createAndPopulateStock(player.helpers, 'player_' + player.id + '_helpers'),
+					craft_bench: this.createAndPopulateStock(player.craft_bench, 'player_' + player.id + '_craft_bench'),
+					sales: this.createAndPopulateStock(player.sales, 'player_' + player.id + '_sales'),
+				}
 				document.getElementById('player_' + player.id + '_waiting_area').innerHTML = player.waiting_area_count;
+			}
+		},
+
+		createAndPopulateStock: function(card_list, element_id) {
+			var stock = new ebg.stock();
+			stock.jstpl_stock_item= "<div id=\"${id}\" class=\"card\" ></div>";
+			stock.centerItems = false;
+			// stock.setSelectionMode(0);
+			stock.create(this, $(element_id), 5, 5);
+			stock.onItemCreate = dojo.hitch(this, 'setupNewCard');
+			for (c in this.gamedatas.cards) {
+				stock.addItemType(this.gamedatas.cards[c].id, 1, '');
+			}
+			stock.addItemType('9999', 1, '');
+			this.addCardsToStock(card_list, stock);
+			return stock;
+		},
+
+		setupNewCard: function(card_div, card_type_id, card_id) {
+			if (card_type_id == '9999') {
+				card_div.innerHTML = 'Hidden';
+			} else {
+				var card = this.gamedatas.cards[card_type_id];
+				var material = this.gamedatas.materials[card.material];
+				card_div.innerHTML = card.name + ' ' + material.symbol;
+			}
+		},
+
+		addCardsToStock: function(cards, stock) {
+			for (c in cards) {
+				var card = cards[c];
+				stock.addToStockWithId(card.type_arg, card.id);
 			}
 		},
 
@@ -243,7 +286,7 @@ function(dojo, declare) {
 		onChoosingTask: function(event) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseNewTask')) return;
-			var card_id = dojo.attr(event.target, 'id').split('_')[1];
+			var card_id = dojo.attr(event.target, 'id').split('_').pop();
 			console.log('Clicked card', card_id);
 			this.ajaxAction('chooseNewTask', {
 				id: card_id,
@@ -273,7 +316,17 @@ function(dojo, declare) {
 
 		notif_discardOldTask: function(notif) {
 			console.log('notif_discardOldTask');
-			console.log(notif);
+			var card_id = notif.args.card_id;
+			var player_id = notif.args.player_id;
+			console.log('addToStockWithId', this.gamedatas.cards[card_id].id, card_id);
+			this.floor.addToStockWithId(this.gamedatas.cards[card_id].id, card_id);
+			if (!notif.args.initial) {
+				console.log('removeFromStockById', card_id);
+				this.players[player_id].task.removeFromStockById(card_id);
+			} else {
+				console.log('removeFromStockById', '9999');
+				this.players[player_id].task.removeFromStockById('9999');
+			}
 			// We received a new full hand of 13 cards.
 			// this.playerHand.removeAll();
 

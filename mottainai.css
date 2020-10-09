@@ -50,6 +50,12 @@
 	top: 0;
 	left: 0;
 }
+.stockitem_selectable {
+	cursor: pointer;
+    border: 4px solid yellow;
+    margin-top: -4px;
+    margin-bottom: -4px;
+}
 .card.selectable {
 	cursor: pointer;
     border: 4px solid yellow;

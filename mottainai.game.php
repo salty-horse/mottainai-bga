@@ -307,8 +307,12 @@ class Mottainai extends Table {
         // Move current player's task to the floor
         $player_id = self::getActivePlayerId();
         $task_cards = $this->deck->getCardsInLocation('task', $player_id);
+		$initial = false;
         if (!$task_cards) {
             $task_cards = $this->deck->getCardsInLocation('initial_task', $player_id);
+			if ($task_cards) {
+				$initial = true;
+			}
         }
         if ($task_cards) {
             $card = array_values($task_cards)[0];
@@ -321,6 +325,7 @@ class Mottainai extends Table {
                 'card_name' => $card_info->name,
                 'player_id' => $player_id,
                 'card_id' => $card['id'],
+				'initial' => $initial,
             ]);
         }
 
