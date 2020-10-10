@@ -255,15 +255,12 @@ class Mottainai extends Table {
         self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
         if ($action == 'pray') {
-            $this->deck->pickCardForLocation('deck', 'waiting_area', $player_id);
+            $this->gamestate->nextState('pray');
+            return;
         } else {
             // TODO other actions
             throw new BgaUserException(self::_('Unsupported action.'));
         }
-        self::notifyAllPlayers('chooseActionPray', clienttranslate('${player_name} prays'), [
-            'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),
-        ]);
         $this->gamestate->nextState('next');
     }
 
@@ -340,8 +337,6 @@ class Mottainai extends Table {
 
         $found_task = null;
 
-        // TODO: If the active player has no task, it becomes a prayer
-
         while (!$found_task) {
             if ($current_task_player_id == $player_id) {
                 if ($saved_value != 0) {
@@ -358,10 +353,16 @@ class Mottainai extends Table {
             }
 
             $found_task = $this->deck->getCardsInLocation('task', $current_task_player_id);
+            // If the active player has no task, it becomes a prayer
+            if (!$found_task && $current_task_player_id == $player_id) {
+                $found_task = 6;
+            }
         }
         self::setGameStateValue('currentTaskPlayerId', $current_task_player_id);
-        $task_card = $this->cards[array_values($found_task)[0]['type_arg']];
-        self::setGameStateValue('currentTask', $task_card->material->id);
+        if ($found_task != 6) {
+            $task_card = $this->cards[array_values($found_task)[0]['type_arg']];
+            self::setGameStateValue('currentTask', $task_card->material->id);
+        }
         $this->gamestate->nextState('perform');
     }
 
@@ -369,7 +370,17 @@ class Mottainai extends Table {
         $player_id = self::getActivePlayerId();
         $current_task_player_id = self::getGameStateValue('currentTaskPlayerId');
         $players = self::loadPlayersBasicInfos();
-        $task_card = array_values($this->deck->getCardsInLocation('task', $current_task_player_id))[0];
+        $task_card = $this->deck->getCardsInLocation('task', $current_task_player_id);
+
+        // If the active player has no task, it becomes a prayer
+        if (!$task_card && $player_id == $current_task_player_id) {
+            self::setGameStateValue('currentTaskActionCurrent', 1);
+            self::setGameStateValue('currentTaskActionTotal', 1);
+            $this->gamestate->nextState('pray');
+            return;
+        }
+
+        $task_card = array_values($task_card)[0];
 
         // TODO: Calculate how many actions
         // self.actions_to_perform = 1 + \
@@ -416,6 +427,16 @@ class Mottainai extends Table {
         $this->gamestate->nextState('perform');
     }
 
+    function stPerformPray() {
+        $player_id = self::getActivePlayerId();
+        $this->deck->pickCardForLocation('deck', 'waiting_area', $player_id);
+        self::notifyAllPlayers('chooseActionPray', clienttranslate('${player_name} prays'), [
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+        ]);
+        $this->gamestate->nextState();
+    }
+
     function stDrawWaitingArea() {
         $player_id = self::getActivePlayerId();
         $cards_in_waiting_area = $this->deck->getCardsInLocation('waiting_area', $player_id);
@@ -431,7 +452,7 @@ class Mottainai extends Table {
         foreach ($players as $player => $info) {
             if ($player == $player_id) {
                 // Notify active player with the actual cards
-                self::notifyPlayer($player, 'drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+                self::notifyPlayer($player, 'drawWaitingArea', '', [
                     'player_id' => $player_id,
                     'player_name' => $player_name,
                     'card_count' => count($cards_in_waiting_area),
@@ -439,7 +460,7 @@ class Mottainai extends Table {
                 ]);
             } else {
                 // Notify other players with number of cards
-                self::notifyPlayer($player, 'drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+                self::notifyPlayer($player, 'drawWaitingArea', '', [
                     'player_id' => $player_id,
                     'player_name' => $player_name,
                     'card_count' => count($cards_in_waiting_area),

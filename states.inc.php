@@ -58,16 +58,17 @@ define('STATE_MORNING_EFFECTS', 4);
 define('STATE_DISCARD_OLD_TASK', 5);
 define('STATE_CHOOSE_NEW_TASK', 6);
 define('STATE_PERFORM_NEXT_PLAYER_TASK', 7);
-define('STATE_PERFORM_TASK', 9);
-define('STATE_PERFORM_NEXT_ACTION', 10);
-define('STATE_PERFORM_ACTION', 11);
-define('STATE_PERFORM_CLERK', 12);
-define('STATE_PERFORM_MONK', 13);
-define('STATE_PERFORM_TAILOR', 14);
-define('STATE_PERFORM_POTTER', 15);
-define('STATE_PERFORM_SMITH', 16);
-define('STATE_REVEAL_CARDS', 17);
-define('STATE_PERFORM_CRAFT', 18);
+define('STATE_PERFORM_TASK', 8);
+define('STATE_PERFORM_NEXT_ACTION', 9);
+define('STATE_PERFORM_ACTION', 10);
+define('STATE_PERFORM_CLERK', 11);
+define('STATE_PERFORM_MONK', 12);
+define('STATE_PERFORM_TAILOR', 13);
+define('STATE_PERFORM_POTTER', 14);
+define('STATE_PERFORM_SMITH', 15);
+define('STATE_REVEAL_CARDS', 16);
+define('STATE_PERFORM_CRAFT', 17);
+define('STATE_PERFORM_PRAY', 18);
 define('STATE_CHOOSE_COMPLETED_WORK_POS', 19);
 define('STATE_PLACE_COMPLETED_WORK', 20);
 define('STATE_NIGHT_EFFECTS', 21);
@@ -134,6 +135,7 @@ $machinestates = [
             /* 'done' => STATE_NIGHT_EFFECTS, */
             'done' => STATE_DRAW_WAITING_AREA,
             'perform' => STATE_PERFORM_NEXT_ACTION,
+            'pray' => STATE_PERFORM_PRAY,
         ],
     ],
 
@@ -155,7 +157,20 @@ $machinestates = [
         'type' => 'activeplayer',
         'args' => 'argPerformAction',
         'possibleactions' => ['chooseAction'],
-        'transitions' => ['next' => STATE_PERFORM_NEXT_ACTION]
+        'transitions' => [
+            'pray' => STATE_PERFORM_PRAY,
+            'next' => STATE_PERFORM_NEXT_ACTION
+        ],
+    ],
+
+    STATE_PERFORM_PRAY => [
+        'name' => 'performPray',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stPerformPray',
+        'transitions' => [
+            'next' => STATE_PERFORM_NEXT_ACTION
+        ],
     ],
 
     STATE_DRAW_WAITING_AREA => [

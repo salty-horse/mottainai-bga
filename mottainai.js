@@ -47,26 +47,13 @@ function(dojo, declare) {
 
 		setup: function( gamedatas )
 		{
-			console.log( "Starting game setup" );
-			console.log( 'gamedatas', gamedatas );
+			console.log('Starting game setup');
+			console.log('gamedatas', gamedatas);
 
 			this.setupPlayerTables();
-
-			// Setting up player boards
-			for( var player_id in gamedatas.players )
-			{
-				var player = gamedatas.players[player_id];
-
-				// TODO: Setting up players boards if needed
-			}
-
-			// TODO: Set up your game interface here, according to "gamedatas"
-
-
-			// Setup game notifications to handle (see "setupNotifications" method below)
 			this.setupNotifications();
 
-			console.log( "Ending game setup" );
+			console.log('Ending game setup');
 		},
 
 
@@ -321,8 +308,7 @@ function(dojo, declare) {
 				  your mottainai.game.php file.
 
 		*/
-		setupNotifications: function()
-		{
+		setupNotifications: function() {
 			console.log('notifications subscriptions setup');
 
 			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
@@ -330,10 +316,10 @@ function(dojo, declare) {
 			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
 			if (this.isSpectator) {
-                dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
-            } else {
-                dojo.subscribe('drawWaitingArea', this, 'notif_drawWaitingArea');
-            }
+				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
+			} else {
+				dojo.subscribe('drawWaitingArea', this, 'notif_drawWaitingArea');
+			}
 		},
 
 		notif_discardOldTask: function(notif) {
@@ -368,7 +354,7 @@ function(dojo, declare) {
 		},
 
 		notif_drawWaitingAreaSpectator: function(notif) {
-            this.notif_drawWaitingArea(notif);
+			this.notif_drawWaitingArea(notif);
 		},
 
 		notif_drawWaitingArea: function(notif) {
@@ -376,14 +362,14 @@ function(dojo, declare) {
 			var card_count = notif.args.ca;
 			this.players[player_id].waiting_area.setValue(0);
 			if (player_id == this.getThisPlayerId()) {
-                var cards = notif.args.cards;
-                for (c in cards) {
-                    var card = cards[c];
-                    this.playerHand.addToStockWithId(card.type_arg, card.id, 'player_' + player_id + '_waiting_area');
-                }
-            } else {
-                this.players[player_id].hand_size.incValue(notif.args.card_count);
-            }
+				var cards = notif.args.cards;
+				for (c in cards) {
+					var card = cards[c];
+					this.playerHand.addToStockWithId(card.type_arg, card.id, 'player_' + player_id + '_waiting_area');
+				}
+			} else {
+				this.players[player_id].hand_size.incValue(notif.args.card_count);
+			}
 		},
 	});
 });
