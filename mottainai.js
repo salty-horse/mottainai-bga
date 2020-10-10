@@ -303,7 +303,6 @@ function(dojo, declare) {
 		doPray: function(event) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
-			debugger;
 			this.ajaxAction('chooseAction', {
 				action_: 'pray',
 			});
@@ -330,6 +329,11 @@ function(dojo, declare) {
 			this.notifqueue.setSynchronous('discardOldTask', 1000);
 			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
+			if (this.isSpectator) {
+                dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
+            } else {
+                dojo.subscribe('drawWaitingArea', this, 'notif_drawWaitingArea');
+            }
 		},
 
 		notif_discardOldTask: function(notif) {
@@ -361,6 +365,25 @@ function(dojo, declare) {
 		notif_chooseActionPray: function(notif) {
 			var player_id = notif.args.player_id;
 			this.players[player_id].waiting_area.incValue(1);
+		},
+
+		notif_drawWaitingAreaSpectator: function(notif) {
+            this.notif_drawWaitingArea(notif);
+		},
+
+		notif_drawWaitingArea: function(notif) {
+			var player_id = notif.args.player_id;
+			var card_count = notif.args.ca;
+			this.players[player_id].waiting_area.setValue(0);
+			if (player_id == this.getThisPlayerId()) {
+                var cards = notif.args.cards;
+                for (c in cards) {
+                    var card = cards[c];
+                    this.playerHand.addToStockWithId(card.type_arg, card.id, 'player_' + player_id + '_waiting_area');
+                }
+            } else {
+                this.players[player_id].hand_size.incValue(notif.args.card_count);
+            }
 		},
 	});
 });

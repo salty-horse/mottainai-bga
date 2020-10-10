@@ -257,7 +257,7 @@ class Mottainai extends Table {
         if ($action == 'pray') {
             $this->deck->pickCardForLocation('deck', 'waiting_area', $player_id);
         } else {
-            // TODO
+            // TODO other actions
             throw new BgaUserException(self::_('Unsupported action.'));
         }
         self::notifyAllPlayers('chooseActionPray', clienttranslate('${player_name} prays'), [
@@ -424,17 +424,35 @@ class Mottainai extends Table {
             return;
         }
 
-        moveAllCardsInLocation('waiting_area', 'hand', $player_id, $player_id);
-        self::notifyAllPlayers('drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+        $this->deck->moveAllCardsInLocation('waiting_area', 'hand', $player_id, $player_id);
+
+        $players = self::loadPlayersBasicInfos();
+        $player_name = self::getActivePlayerName();
+        foreach ($players as $player => $info) {
+            if ($player == $player_id) {
+                // Notify active player with the actual cards
+                self::notifyPlayer($player, 'drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+                    'player_id' => $player_id,
+                    'player_name' => $player_name,
+                    'card_count' => count($cards_in_waiting_area),
+                    'cards' => $cards_in_waiting_area,
+                ]);
+            } else {
+                // Notify other players with number of cards
+                self::notifyPlayer($player, 'drawWaitingArea', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
+                    'player_id' => $player_id,
+                    'player_name' => $player_name,
+                    'card_count' => count($cards_in_waiting_area),
+                ]);
+            }
+        }
+
+        // Notify spectators
+        self::notifyAllPlayers('drawWaitingAreaSpectator', clienttranslate('${player_name} draws ${card_count} card(s) from the waiting area'), [
             'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),
+            'player_name' => $player_name,
             'card_count' => count($cards_in_waiting_area),
         ]);
-
-        // TODO:
-        // Notify active player with the actual cards
-        // Notify other players with number of cards
-        // Notify spectators
 
         $this->gamestate->nextState();
     }
