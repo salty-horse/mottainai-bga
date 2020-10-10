@@ -45,9 +45,23 @@ class action_mottainai extends APP_GameAction
     public function chooseAction() {
         self::setAjaxMode();
         $action = self::getArg('action_', AT_alphanum);
-		$work_to_create = null;
-		$cards_to_reveal = null;
-		$this->game->chooseAction($action, $work_to_create, $cards_to_reveal);
+        $work_to_create = null;
+        $cards_to_reveal = null;
+        $this->game->chooseAction($action, $work_to_create, $cards_to_reveal);
+        self::ajaxResponse();
+    }
+
+    public function chooseMonkCard() {
+        self::setAjaxMode();
+        $card_id = self::getArg('id', AT_posint, true);
+        $this->game->chooseMonkCard($card_id);
+        self::ajaxResponse();
+    }
+
+    public function choosePotterCard() {
+        self::setAjaxMode();
+        $card_id = self::getArg('id', AT_posint, true);
+        $this->game->choosePotterCard($card_id);
         self::ajaxResponse();
     }
     

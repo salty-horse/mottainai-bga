@@ -192,6 +192,26 @@ function(dojo, declare) {
 					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingTask'));
 				});
 				break;
+			case 'client_doMonk':
+				if (!this.isCurrentPlayerActive())
+					break;
+
+				dojo.query('#floor > .card').forEach(function(node, index, arr) {
+					_this.selectableElements.push(node);
+					node.classList.add('selectable');
+					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingMonkFloorCard'));
+				});
+				break;
+			case 'client_doPotter':
+				if (!this.isCurrentPlayerActive())
+					break;
+
+				dojo.query('#floor > .card').forEach(function(node, index, arr) {
+					_this.selectableElements.push(node);
+					node.classList.add('selectable');
+					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingPotterFloorCard'));
+				});
+				break;
 			}
 		},
 
@@ -211,18 +231,44 @@ function(dojo, declare) {
 		// onUpdateActionButtons: in this method you can manage "action buttons" that are displayed in the
 		//						action status bar (ie: the HTML links in the status bar).
 		//
-		onUpdateActionButtons: function( stateName, args ) {
+		onUpdateActionButtons: function(stateName, args) {
 			console.log('onUpdateActionButtons:', stateName);
 
-			if(this.isCurrentPlayerActive())
+			if (this.isCurrentPlayerActive())
 			{
 				switch(stateName) {
 				case 'chooseNewTask':
-				   this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
-				   break;
+					this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
+					break;
 				case 'chooseAction':
-				   this.addActionButton('button_1_id', _('Pray'), 'doPray');
-				   break;
+					var task_id = args.task_id;
+					if (this.canPerformTask(task_id)) {
+						if (task_id == 1) { // Clerk
+							this.addActionButton('button_1_id', _('Clerk: Sell a material'), 'doClerk');
+						} else if (task_id == 2) { // Monk
+							this.addActionButton('button_1_id', _('Monk: Hire a helper'), 'doMonk');
+						} else if (task_id == 3) { // Tailor
+							this.addActionButton('button_1_id', _('Tailor: Refill your hand'), 'doTailor');
+						} else if (task_id == 4) { // Potter
+							this.addActionButton('button_1_id', _('Potter: Collect a material'), 'doPotter');
+						} else if (task_id == 5) { // Smith
+							this.addActionButton('button_1_id', _('Smith: Complete any work'), 'doSmith');
+						}
+					}
+					if (this.canPerformCraft(task_id)) {
+						var craft_string = dojo.string.substitute(_('Craft a ${material} work'), {
+							material: this.gamedatas.materials[task_id].name
+						});
+						this.addActionButton('button_6_id', craft_string, 'doCraft');
+					}
+					// TODO: Allow praying for all remaining actions
+					this.addActionButton('button_7_id', _('Pray'), 'doPray');
+					break;
+				case 'client_doPotter':
+					this.addActionButton('button_1_id', _('Cancel'), dojo.hitch(this, function() {
+						this.restoreServerGameState();
+					}));
+					break;
 				}
 			}
 		},
@@ -257,6 +303,63 @@ function(dojo, declare) {
 			this.ajaxcall("/" + name + "/" + name + "/" + action + ".html", args, this, func, err);
 		},
 
+		canPerformTask: function(task_id) {
+			var player_id = this.getThisPlayerId();
+			if (task_id == 1) { // Clerk
+				return this.players[player_id].craft_bench.count() > 0;
+			} else if (task_id == 2 || task_id == 4) { // Monk or Potter
+				return this.floor.count() > 0;
+			} else if (task_id == 3) { // Tailor
+				return this.players[player_id].waiting_area.getValue() < 5;
+			} else if (task_id == 5) { // Smith
+				// TODO: Consider Crane effect that reduces cost
+				// TODO: Consider Straw effect that reduces cost
+				// TODO: Consider Brick effect that uses tasks for support
+				var handMaterials = this.countStockByMaterial(this.playerHand);
+				var items = this.playerHand.getAllItems();
+				for (var i = 0; i < items.length; i++) {
+					var card = items[i];
+					var material = this.gamedatas.cards[card.type].material;
+					if (handMaterials[material] >= this.gamedatas.materials[material].value)
+						return true;
+				}
+			}
+
+			return false;
+		},
+
+		canPerformCraft: function(material_type) {
+			// TODO: Consider Crane effect that reduces cost
+			var benchMaterials = this.countStockByMaterial(this.players[this.getThisPlayerId()].craft_bench);
+			var items = this.playerHand.getAllItems();
+			for (var i = 0; i < items.length; i++) {
+				var card = items[i];
+				var material = this.gamedatas.cards[card.type].material;
+				if (material != material_type)
+					continue;
+				if (benchMaterials[material] >= this.gamedatas.materials[material].value - 1)
+					return true;
+			}
+
+			return false;
+		},
+
+		countStockByMaterial: function(stock) {
+			var stockByMaterial = {
+				1: 0,
+				2: 0,
+				3: 0,
+				4: 0,
+				5: 0,
+			};
+			var items = stock.getAllItems();
+			for (var i = 0; i < items.length; i++) {
+				var card = items[i];
+				var material = this.gamedatas.cards[card.type].material;
+				stockByMaterial[material] += 1;
+			}
+			return stockByMaterial;
+		},
 
 		///////////////////////////////////////////////////
 		//// Player's action
@@ -287,6 +390,52 @@ function(dojo, declare) {
 			});
 		},
 
+		onChoosingMonkFloorCard: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseAction')) return;
+			var card_id = dojo.attr(event.target, 'id').split('_').pop();
+			this.ajaxAction('chooseMonkCard', {
+				id: card_id,
+			});
+		},
+
+		onChoosingPotterFloorCard: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseAction')) return;
+			var card_id = dojo.attr(event.target, 'id').split('_').pop();
+			this.ajaxAction('choosePotterCard', {
+				id: card_id,
+			});
+		},
+
+		doClerk: function(event) {
+		},
+
+		doMonk: function(event) {
+			dojo.stopEvent(event);
+			// TODO: Flute, Sword
+			this.setClientState('client_doMonk', {
+				descriptionmyturn: _('${you} must select a card from the Floor to add to your Helpers'),
+			});
+		},
+
+		doTailor: function(event) {
+		},
+
+		doPotter: function(event) {
+			dojo.stopEvent(event);
+			// TODO: Socks, Flute, Sword
+			this.setClientState('client_doPotter', {
+				descriptionmyturn: _('${you} must select a card from the Floor to add to your Craft Bench'),
+			});
+		},
+
+		doSmith: function(event) {
+		},
+
+		doCraft: function(event) {
+		},
+
 		doPray: function(event) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
@@ -314,6 +463,8 @@ function(dojo, declare) {
 			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
 			this.notifqueue.setSynchronous('discardOldTask', 1000);
 			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
+			dojo.subscribe('chooseMonkCardFloor', this, 'notif_chooseMonkCardFloor');
+			dojo.subscribe('choosePotterCardFloor', this, 'notif_choosePotterCardFloor');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
 			if (this.isSpectator) {
 				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
@@ -346,6 +497,24 @@ function(dojo, declare) {
 				this.players[player_id].hand_size.incValue(-1);
 				this.players[player_id].task.addToStockWithId(card_type, card_id);
 			}
+		},
+
+		notif_chooseMonkCardFloor: function(notif) {
+			var card_id = notif.args.card_id;
+			if (!card_id) return;
+			var card_type = notif.args.card_type;
+			var player_id = notif.args.player_id;
+			this.floor.removeFromStockById(card_id);
+			this.players[player_id].helpers.addToStockWithId(card_type, card_id, this.floor.container_div);
+		},
+
+		notif_choosePotterCardFloor: function(notif) {
+			var card_id = notif.args.card_id;
+			if (!card_id) return;
+			var card_type = notif.args.card_type;
+			var player_id = notif.args.player_id;
+			this.floor.removeFromStockById(card_id);
+			this.players[player_id].craft_bench.addToStockWithId(card_type, card_id, this.floor.container_div);
 		},
 
 		notif_chooseActionPray: function(notif) {

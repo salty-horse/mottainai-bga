@@ -152,8 +152,8 @@ $machinestates = [
 
     STATE_PERFORM_ACTION => [
         'name' => 'chooseAction',
-		'description' => clienttranslate('${actplayer} must perform ${task} action ${action_count} of ${action_total}'),
-		'descriptionmyturn' => clienttranslate('${you} must perform ${task} action ${action_count} of ${action_total}'),
+		'description' => clienttranslate('${actplayer} must perform ${task_name} action ${action_count} of ${action_total}'),
+		'descriptionmyturn' => clienttranslate('${you} must perform ${task_name} action ${action_count} of ${action_total}'),
         'type' => 'activeplayer',
         'args' => 'argPerformAction',
         'possibleactions' => ['chooseAction'],

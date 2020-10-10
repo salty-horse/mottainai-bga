@@ -264,6 +264,51 @@ class Mottainai extends Table {
         $this->gamestate->nextState('next');
     }
 
+    function chooseMonkCard($card_id) {
+        $player_id = self::getActivePlayerId();
+        $card = $this->deck->getCard($card_id);
+        // TODO: Socks, Flute, Sword
+        if (!$card || $card['location'] != 'floor') {
+            throw new BgaUserException(self::_('This card is not allowed.'));
+        }
+        $this->deck->moveCard($card_id, 'helpers', $player_id);
+
+        $card_info = $this->cards[$card['type_arg']];
+
+        self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor as a Helper'), [
+            'i18n' => ['card_name'],
+            'card_id' => $card_id,
+            'card_type' => $card['type_arg'],
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+            'card_name' => $card_info->name,
+        ]);
+        $this->gamestate->nextState('next');
+    }
+
+    function choosePotterCard($card_id) {
+        $player_id = self::getActivePlayerId();
+        $card = $this->deck->getCard($card_id);
+        // TODO: Socks, Flute, Sword
+        if (!$card || $card['location'] != 'floor') {
+            throw new BgaUserException(self::_('This card is not allowed.'));
+        }
+        $this->deck->moveCard($card_id, 'craft_bench', $player_id);
+
+        $card_info = $this->cards[$card['type_arg']];
+
+        self::notifyAllPlayers('choosePotterCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor to the Craft Bench'), [
+            'i18n' => ['card_name'],
+            'card_id' => $card_id,
+            'card_type' => $card['type_arg'],
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+            'card_name' => $card_info->name,
+        ]);
+        // TODO: Plane
+        $this->gamestate->nextState('next');
+    }
+
     //////////////////////////////////////////////////////////////////////////////
     //////////// Game state arguments
     ////////////
@@ -276,7 +321,8 @@ class Mottainai extends Table {
     function argPerformAction() {
         $current_task = self::getGameStateValue('currentTask');
         return [
-            'task' => $this->materials[$current_task]->task,
+            'task_id' => $this->materials[$current_task]->id,
+            'task_name' => $this->materials[$current_task]->task,
             'action_count' => self::getGameStateValue('currentTaskActionCurrent'),
             'action_total' => self::getGameStateValue('currentTaskActionTotal'),
         ];
