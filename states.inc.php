@@ -169,7 +169,8 @@ $machinestates = [
         'type' => 'game',
         'action' => 'stPerformPray',
         'transitions' => [
-            'next' => STATE_PERFORM_NEXT_ACTION
+            'next' => STATE_PERFORM_NEXT_ACTION,
+            'end_game' => STATE_END_GAME,
         ],
     ],
 

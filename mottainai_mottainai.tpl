@@ -23,7 +23,7 @@ var jstpl_otherPlayerTable =
 	'<div class="table whiteblock" id="player_table_${id}">' +
 	'  <h3 style="color: #${color}">${name}</h3>' +
 	'  <div><span class="table_label">Revealed hand:</span><div class="card_list" id="player_${id}_hand"></div></div>' +
-	'  <div><span class="table_label">Hand size:</span><div class="card_list" id="player_${id}_hand_size"></div></div>' +
+	'  <div><span class="table_label">Hand size:</span><div class="card_list" id="player_${id}_hand_count"></div></div>' +
 	'  <div><span class="table_label">Task:</span><div class="card_list" id="player_${id}_task"></div></div>' +
 	'  <div><span class="table_label">Gallery:</span><div class="card_list" id="player_${id}_gallery"></div></div>' +
 	'  <div><span class="table_label">Gift Shop:</span><div class="card_list" id="player_${id}_gift_shop"></div></div>' +

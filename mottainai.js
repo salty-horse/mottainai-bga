@@ -72,8 +72,11 @@ function(dojo, declare) {
 		},
 
 		setupPlayerTables: function() {
-			dojo.create('div', {class: 'table whiteblock', innerHTML: '<h3>Floor</h3><div id="floor"></div>'}, 'player_table', 'last');
+			dojo.create('div', {class: 'table whiteblock', innerHTML: '<div><span class="table_label">Deck:</span><div class="card_list" id="deck_count"></div></div><h3>Floor</h3><div id="floor"></div>'}, 'player_table', 'last');
 			this.floor = this.createAndPopulateStock(this.gamedatas.floor, 'floor'),
+			this.deck_count = new ebg.counter();
+			this.deck_count.create('deck_count');
+			this.deck_count.setValue(this.gamedatas.deck_count);
 
 			this.players = [];
 
@@ -104,9 +107,9 @@ function(dojo, declare) {
 				}
 
 				if (current_player != player_id) {
-					this.players[player_id].hand_size = new ebg.counter();
-					this.players[player_id].hand_size.create('player_' + player_id + '_hand_size');
-					this.players[player_id].hand_size.setValue(player.hand_count);
+					this.players[player_id].hand_count = new ebg.counter();
+					this.players[player_id].hand_count.create('player_' + player_id + '_hand_count');
+					this.players[player_id].hand_count.setValue(player.hand_count);
 				} else {
 					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, 'player_' + player.id + '_hand');
 				}
@@ -234,8 +237,8 @@ function(dojo, declare) {
 		onUpdateActionButtons: function(stateName, args) {
 			console.log('onUpdateActionButtons:', stateName);
 
-			if (this.isCurrentPlayerActive())
-			{
+			if (this.isCurrentPlayerActive()) {
+				var player_id = this.getThisPlayerId();
 				switch(stateName) {
 				case 'chooseNewTask':
 					this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
@@ -248,7 +251,12 @@ function(dojo, declare) {
 						} else if (task_id == 2) { // Monk
 							this.addActionButton('button_1_id', _('Monk: Hire a helper'), 'doMonk');
 						} else if (task_id == 3) { // Tailor
-							this.addActionButton('button_1_id', _('Tailor: Refill your hand'), 'doTailor');
+							if (this.players[player_id].waiting_area.getValue() < 5) {
+								label = _('Tailor: Refill your hand')
+							} else {
+								label = _('Tailor: Discard your hand')
+							}
+							this.addActionButton('button_1_id', label, 'doTailor');
 						} else if (task_id == 4) { // Potter
 							this.addActionButton('button_1_id', _('Potter: Collect a material'), 'doPotter');
 						} else if (task_id == 5) { // Smith
@@ -494,7 +502,7 @@ function(dojo, declare) {
 				this.playerHand.removeFromStockById(card_id);
 				this.players[player_id].task.addToStockWithId(card_type, card_id, this.playerHand.container_div);
 			} else {
-				this.players[player_id].hand_size.incValue(-1);
+				this.players[player_id].hand_count.incValue(-1);
 				this.players[player_id].task.addToStockWithId(card_type, card_id);
 			}
 		},
@@ -519,6 +527,7 @@ function(dojo, declare) {
 
 		notif_chooseActionPray: function(notif) {
 			var player_id = notif.args.player_id;
+			this.deck_count.incValue(-1);
 			this.players[player_id].waiting_area.incValue(1);
 		},
 
@@ -537,7 +546,7 @@ function(dojo, declare) {
 					this.playerHand.addToStockWithId(card.type_arg, card.id, 'player_' + player_id + '_waiting_area');
 				}
 			} else {
-				this.players[player_id].hand_size.incValue(notif.args.card_count);
+				this.players[player_id].hand_count.incValue(notif.args.card_count);
 			}
 		},
 	});

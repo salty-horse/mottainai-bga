@@ -480,7 +480,11 @@ class Mottainai extends Table {
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
         ]);
-        $this->gamestate->nextState();
+        if ($this->deck->countCardInLocation('deck') == 0) {
+            $this->gamestate->nextState('end_game');
+            return;
+        }
+        $this->gamestate->nextState('next');
     }
 
     function stDrawWaitingArea() {
