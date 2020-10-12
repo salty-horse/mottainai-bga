@@ -195,6 +195,16 @@ function(dojo, declare) {
 					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingTask'));
 				});
 				break;
+			case 'client_doClerk':
+				if (!this.isCurrentPlayerActive())
+					break;
+
+				dojo.query('#player_' + playerId + '_craft_bench > .card').forEach(function(node, index, arr) {
+					_this.selectableElements.push(node);
+					node.classList.add('selectable');
+					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingClerkCard'));
+				});
+				break;
 			case 'client_doMonk':
 				if (!this.isCurrentPlayerActive())
 					break;
@@ -398,6 +408,15 @@ function(dojo, declare) {
 			});
 		},
 
+		onChoosingClerkCard: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('chooseAction')) return;
+			var card_id = dojo.attr(event.target, 'id').split('_').pop();
+			this.ajaxAction('chooseClerkCard', {
+				id: card_id,
+			});
+		},
+
 		onChoosingMonkFloorCard: function(event) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
@@ -417,6 +436,11 @@ function(dojo, declare) {
 		},
 
 		doClerk: function(event) {
+			dojo.stopEvent(event);
+			// TODO: Robe, Bell
+			this.setClientState('client_doClerk', {
+				descriptionmyturn: _('${you} must select a card from the Craft Bench to sell'),
+			});
 		},
 
 		doMonk: function(event) {
@@ -471,6 +495,7 @@ function(dojo, declare) {
 			dojo.subscribe('discardOldTask', this, 'notif_discardOldTask');
 			this.notifqueue.setSynchronous('discardOldTask', 1000);
 			dojo.subscribe('chooseNewTask', this, 'notif_chooseNewTask');
+			dojo.subscribe('chooseClerkCard', this, 'notif_chooseClerkCard');
 			dojo.subscribe('chooseMonkCardFloor', this, 'notif_chooseMonkCardFloor');
 			dojo.subscribe('choosePotterCardFloor', this, 'notif_choosePotterCardFloor');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
@@ -505,6 +530,15 @@ function(dojo, declare) {
 				this.players[player_id].hand_count.incValue(-1);
 				this.players[player_id].task.addToStockWithId(card_type, card_id);
 			}
+		},
+
+		notif_chooseClerkCard: function(notif) {
+			var card_id = notif.args.card_id;
+			if (!card_id) return;
+			var card_type = notif.args.card_type;
+			var player_id = notif.args.player_id;
+			this.players[player_id].craft_bench.removeFromStockById(card_id);
+			this.players[player_id].sales.addToStockWithId(card_type, card_id, this.players[player_id].craft_bench.container_div);
 		},
 
 		notif_chooseMonkCardFloor: function(notif) {

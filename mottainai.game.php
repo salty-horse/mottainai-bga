@@ -264,6 +264,29 @@ class Mottainai extends Table {
         $this->gamestate->nextState('next');
     }
 
+    function chooseClerkCard($card_id) {
+        $player_id = self::getActivePlayerId();
+        $card = $this->deck->getCard($card_id);
+        if (!$card || $card['location'] != 'craft_bench' || $card['location_arg'] != $player_id) {
+            throw new BgaUserException(self::_('This card is not allowed.'));
+        }
+        $this->deck->moveCard($card_id, 'sales', $player_id);
+
+        $card_info = $this->cards[$card['type_arg']];
+
+		// TODO: Update score
+
+        self::notifyAllPlayers('chooseClerkCard', clienttranslate('${player_name} sells ${card_name} from the Craft Bench'), [
+            'i18n' => ['card_name'],
+            'card_id' => $card_id,
+            'card_type' => $card['type_arg'],
+            'player_id' => $player_id,
+            'player_name' => self::getActivePlayerName(),
+            'card_name' => $card_info->name,
+        ]);
+        $this->gamestate->nextState('next');
+    }
+
     function chooseMonkCard($card_id) {
         $player_id = self::getActivePlayerId();
         $card = $this->deck->getCard($card_id);
@@ -275,7 +298,7 @@ class Mottainai extends Table {
 
         $card_info = $this->cards[$card['type_arg']];
 
-        self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor as a Helper'), [
+        self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} hires ${card_name} from the Floor'), [
             'i18n' => ['card_name'],
             'card_id' => $card_id,
             'card_type' => $card['type_arg'],
