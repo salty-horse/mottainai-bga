@@ -38,6 +38,7 @@ class Mottainai extends Table {
             "currentTask" => 11,
             "currentTaskActionCurrent" => 12,
             "currentTaskActionTotal" => 13,
+            "completedCard" => 14,
         ]);
         
         $this->deck = self::getNew("module.common.deck");
@@ -86,6 +87,7 @@ class Mottainai extends Table {
         self::setGameStateInitialValue('currentTask', 0);
         self::setGameStateInitialValue('currentTaskActionCurrent', 0);
         self::setGameStateInitialValue('currentTaskActionTotal', 0);
+        self::setGameStateInitialValue('completedCard', 0);
 
         // Init game statistics
         // (note: statistics are defined in your stats.inc.php file)
@@ -186,6 +188,9 @@ class Mottainai extends Table {
             $cards[$card_id] = $card->toJson();
         }
 
+        // TODO: Query from card DB once at the top of the function
+        $result['card_id_to_type'] = self::getCollectionFromDb('SELECT card_id id, card_type_arg type FROM card', true);
+
         return $result;
     }
 
@@ -242,7 +247,6 @@ class Mottainai extends Table {
         self::notifyAllPlayers('chooseNewTask', clienttranslate('${player_name} plays ${card_name} as a ${task_name} task'), [
             'i18n' => ['card_name', 'task_name'],
             'card_id' => $card_id,
-            'card_type' => $card['type_arg'],
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
             'card_name' => $card_info->name,
@@ -251,20 +255,64 @@ class Mottainai extends Table {
         $this->gamestate->nextState('chooseNewTask');
     }
 
-    function chooseAction($action, $work_to_create, $cards_to_reveal) {
+    function chooseAction($action, $card_id, $wing, $cards_to_reveal) {
         self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
         if ($action == 'pray') {
             $this->gamestate->nextState('pray');
             return;
         } else {
-            // TODO other actions
-            throw new BgaUserException(self::_('Unsupported action.'));
+            $current_task = self::getGameStateValue('currentTask');
+            if ($action == 'craft') {
+                $card = $this->deck->getCard($card_id);
+                if (!$card || $card['location'] != 'hand' || $card['location_arg'] != $player_id) {
+                    throw new BgaUserException(self::_('This card is not allowed.'));
+                }
+                $card_info = $this->cards[$card['type_arg']];
+                if ($card_info->material->id != $current_task) {
+                    throw new BgaUserException(self::_('Cannot craft this material.'));
+                }
+                if ($card_info->material->value > 1) {
+                    $bench_cards = $this->deck->getCardsInLocation('craft_bench', $player_id);
+                    $bench_count = 0;
+                    foreach ($bench_cards as $bench_card_id => $bench_card) {
+                        if ($bench_card->material->id == $current_task) {
+                            $bench_count++;
+                        }
+                    }
+                    if ($bench_count < $card_info->material->value - 1) {
+                        throw new BgaUserException(self::_('Not enough materials in Craft Bench.'));
+                    }
+                }
+
+                $this->deck->moveCard($card_id, $wing, $player_id);
+                self::setGameStateValue('completedCard', $card_id);
+
+                # TODO: update score - maybe in stCompletedWork since it can be affected by card effects
+
+                self::notifyAllPlayers('craftedWork', clienttranslate('${player_name} crafts ${card_name} into the ${wing_name}'), [
+                    'i18n' => ['card_name', 'wing_name'],
+                    'card_id' => $card_id,
+                    'wing' => $wing,
+                    'player_id' => $player_id,
+                    'player_name' => self::getActivePlayerName(),
+                    'card_name' => $card_info->name,
+                    'wing_name' => $this->wing_names[$wing],
+                ]);
+
+                $this->gamestate->nextState('completed_work');
+                return;
+
+            } else {
+                // TODO other actions
+                throw new BgaUserException(self::_('Unsupported action.'));
+            }
         }
         $this->gamestate->nextState('next');
     }
 
     function chooseClerkCard($card_id) {
+        self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
         $card = $this->deck->getCard($card_id);
         if (!$card || $card['location'] != 'craft_bench' || $card['location_arg'] != $player_id) {
@@ -274,12 +322,11 @@ class Mottainai extends Table {
 
         $card_info = $this->cards[$card['type_arg']];
 
-		// TODO: Update score
+        // TODO: Update score
 
         self::notifyAllPlayers('chooseClerkCard', clienttranslate('${player_name} sells ${card_name} from the Craft Bench'), [
             'i18n' => ['card_name'],
             'card_id' => $card_id,
-            'card_type' => $card['type_arg'],
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
             'card_name' => $card_info->name,
@@ -288,6 +335,7 @@ class Mottainai extends Table {
     }
 
     function chooseMonkCard($card_id) {
+        self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
         $card = $this->deck->getCard($card_id);
         // TODO: Socks, Flute, Sword
@@ -301,7 +349,6 @@ class Mottainai extends Table {
         self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} hires ${card_name} from the Floor'), [
             'i18n' => ['card_name'],
             'card_id' => $card_id,
-            'card_type' => $card['type_arg'],
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
             'card_name' => $card_info->name,
@@ -310,6 +357,7 @@ class Mottainai extends Table {
     }
 
     function choosePotterCard($card_id) {
+        self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
         $card = $this->deck->getCard($card_id);
         // TODO: Socks, Flute, Sword
@@ -323,7 +371,6 @@ class Mottainai extends Table {
         self::notifyAllPlayers('choosePotterCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor to the Craft Bench'), [
             'i18n' => ['card_name'],
             'card_id' => $card_id,
-            'card_type' => $card['type_arg'],
             'player_id' => $player_id,
             'player_name' => self::getActivePlayerName(),
             'card_name' => $card_info->name,
@@ -344,7 +391,7 @@ class Mottainai extends Table {
     function argPerformAction() {
         $current_task = self::getGameStateValue('currentTask');
         return [
-            'task_id' => $this->materials[$current_task]->id,
+            'task_id' => $current_task,
             'task_name' => $this->materials[$current_task]->task,
             'action_count' => self::getGameStateValue('currentTaskActionCurrent'),
             'action_total' => self::getGameStateValue('currentTaskActionTotal'),
@@ -386,7 +433,6 @@ class Mottainai extends Table {
                 'card_name' => $card_info->name,
                 'player_id' => $player_id,
                 'card_id' => $card['id'],
-                'card_type' => $card['type_arg'],
                 'initial' => $initial,
             ]);
         }
@@ -504,9 +550,16 @@ class Mottainai extends Table {
             'player_name' => self::getActivePlayerName(),
         ]);
         if ($this->deck->countCardInLocation('deck') == 0) {
+            // TODO: Notify players why the game is over
             $this->gamestate->nextState('end_game');
             return;
         }
+        $this->gamestate->nextState('next');
+    }
+
+    function stCompletedWork() {
+        # TODO: Check end of game
+        # TODO: Check triggered effects
         $this->gamestate->nextState('next');
     }
 

@@ -70,7 +70,7 @@ define('STATE_REVEAL_CARDS', 16);
 define('STATE_PERFORM_CRAFT', 17);
 define('STATE_PERFORM_PRAY', 18);
 define('STATE_CHOOSE_COMPLETED_WORK_POS', 19);
-define('STATE_PLACE_COMPLETED_WORK', 20);
+define('STATE_COMPLETED_WORK', 20);
 define('STATE_NIGHT_EFFECTS', 21);
 define('STATE_DRAW_WAITING_AREA', 22);
 define('STATE_END_GAME', 99);
@@ -107,8 +107,8 @@ $machinestates = [
 
     STATE_CHOOSE_NEW_TASK => [
         'name' => 'chooseNewTask',
-		'description' => clienttranslate('${actplayer} may choose a new task'),
-		'descriptionmyturn' => clienttranslate('${you} may choose a new task'),
+        'description' => clienttranslate('${actplayer} may choose a new task'),
+        'descriptionmyturn' => clienttranslate('${you} may choose a new task'),
         'type' => 'activeplayer',
         'possibleactions' => ['chooseNewTask'],
         'transitions' => ['chooseNewTask' => STATE_PERFORM_NEXT_PLAYER_TASK]
@@ -152,14 +152,15 @@ $machinestates = [
 
     STATE_PERFORM_ACTION => [
         'name' => 'chooseAction',
-		'description' => clienttranslate('${actplayer} must perform ${task_name} action ${action_count} of ${action_total}'),
-		'descriptionmyturn' => clienttranslate('${you} must perform ${task_name} action ${action_count} of ${action_total}'),
+        'description' => clienttranslate('${actplayer} must perform ${task_name} action ${action_count} of ${action_total}'),
+        'descriptionmyturn' => clienttranslate('${you} must perform ${task_name} action ${action_count} of ${action_total}'),
         'type' => 'activeplayer',
         'args' => 'argPerformAction',
         'possibleactions' => ['chooseAction'],
         'transitions' => [
             'pray' => STATE_PERFORM_PRAY,
-            'next' => STATE_PERFORM_NEXT_ACTION
+            'completed_work' => STATE_COMPLETED_WORK,
+            'next' => STATE_PERFORM_NEXT_ACTION,
         ],
     ],
 
@@ -171,6 +172,16 @@ $machinestates = [
         'transitions' => [
             'next' => STATE_PERFORM_NEXT_ACTION,
             'end_game' => STATE_END_GAME,
+        ],
+    ],
+
+    STATE_COMPLETED_WORK => [
+        'name' => 'completedWork',
+        'description' => '',
+        'type' => 'game',
+        'action' => 'stCompletedWork',
+        'transitions' => [
+            'next' => STATE_PERFORM_NEXT_ACTION,
         ],
     ],
 

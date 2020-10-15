@@ -45,10 +45,13 @@ function(dojo, declare) {
 			"gamedatas" argument contains all datas retrieved by your "getAllDatas" PHP method.
 		*/
 
-		setup: function( gamedatas )
-		{
+		setup: function(gamedatas) {
 			console.log('Starting game setup');
 			console.log('gamedatas', gamedatas);
+
+			for (let [k, v] of Object.entries(gamedatas['card_id_to_type'])) {
+				gamedatas['card_id_to_type'][k] = gamedatas.cards[v];
+			}
 
 			this.setupPlayerTables();
 			this.setupNotifications();
@@ -182,14 +185,14 @@ function(dojo, declare) {
 			this.selectableElements = [];
 			var _this = this;
 			console.log('Entering state', stateName, args);
-			var playerId = this.getThisPlayerId();
+			let player_id = this.getThisPlayerId();
 
 			switch (stateName) {
 			case 'chooseNewTask':
 				if (!this.isCurrentPlayerActive())
 					break;
 
-				dojo.query('#player_' + playerId + '_hand > .card').forEach(function(node, index, arr) {
+				dojo.query('#player_' + player_id + '_hand > .card').forEach(function(node, index, arr) {
 					_this.selectableElements.push(node);
 					node.classList.add('selectable');
 					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingTask'));
@@ -199,7 +202,7 @@ function(dojo, declare) {
 				if (!this.isCurrentPlayerActive())
 					break;
 
-				dojo.query('#player_' + playerId + '_craft_bench > .card').forEach(function(node, index, arr) {
+				dojo.query('#player_' + player_id + '_craft_bench > .card').forEach(function(node, index, arr) {
 					_this.selectableElements.push(node);
 					node.classList.add('selectable');
 					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingClerkCard'));
@@ -224,6 +227,17 @@ function(dojo, declare) {
 					node.classList.add('selectable');
 					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onChoosingPotterFloorCard'));
 				});
+				break;
+			case 'client_doCraft':
+				if (!this.isCurrentPlayerActive())
+					break;
+
+				for (let card_id of this.getCraftableCards(this.clientStateArgs.material)) {
+					var node = document.getElementById(`player_${player_id}_hand_item_${card_id}`);
+					_this.selectableElements.push(node);
+					node.classList.add('selectable');
+					_this.connections.push(dojo.connect(node, 'onclick', _this, 'onSelectingCardToCraft'));
+				}
 				break;
 			}
 		},
@@ -277,15 +291,37 @@ function(dojo, declare) {
 						var craft_string = dojo.string.substitute(_('Craft a ${material} work'), {
 							material: this.gamedatas.materials[task_id].name
 						});
+						this.clientStateArgs = {
+							material: task_id,
+						};
 						this.addActionButton('button_6_id', craft_string, 'doCraft');
 					}
 					// TODO: Allow praying for all remaining actions
 					this.addActionButton('button_7_id', _('Pray'), 'doPray');
 					break;
 				case 'client_doPotter':
-					this.addActionButton('button_1_id', _('Cancel'), dojo.hitch(this, function() {
+					this.addActionButton('button_1_id', _('Cancel'), () => {
 						this.restoreServerGameState();
-					}));
+					});
+					break;
+				case 'client_doClerk':
+				case 'client_doMonk':
+				case 'client_doPotter':
+				case 'client_doCraft':
+					this.addActionButton('button_1_id', _('Cancel'), () => {
+						this.restoreServerGameState();
+					});
+					break;
+				case 'client_selectCraftWing':
+					this.addActionButton('button_1_id', _('Gallery'), event => {
+						this.doCraftWing(event, 'gallery');
+					});
+					this.addActionButton('button_2_id', _('Gift Shop'), event => {
+						this.doCraftWing(event, 'gift_shop');
+					});
+					this.addActionButton('button_3_id', _('Cancel'), () => {
+						this.restoreServerGameState();
+					});
 					break;
 				}
 			}
@@ -312,9 +348,7 @@ function(dojo, declare) {
 				delete args.lock;
 			}
 			if (typeof func == "undefined" || func == null) {
-				var self = this;
-				func = function (result) {
-				};
+				func = result => {};
 			}
 
 			var name = this.game_name;
@@ -347,33 +381,32 @@ function(dojo, declare) {
 		},
 
 		canPerformCraft: function(material_type) {
+			return Boolean(this.getCraftableCards(material_type).next().value);
+		},
+
+		getCraftableCards: function*(material_type) {
 			// TODO: Consider Crane effect that reduces cost
-			var benchMaterials = this.countStockByMaterial(this.players[this.getThisPlayerId()].craft_bench);
-			var items = this.playerHand.getAllItems();
-			for (var i = 0; i < items.length; i++) {
-				var card = items[i];
-				var material = this.gamedatas.cards[card.type].material;
+			let benchMaterials = this.countStockByMaterial(this.players[this.getThisPlayerId()].craft_bench);
+			let items = this.playerHand.getAllItems();
+			for (let card of items) {
+				let material = this.gamedatas.cards[card.type].material;
 				if (material != material_type)
 					continue;
 				if (benchMaterials[material] >= this.gamedatas.materials[material].value - 1)
-					return true;
+					yield card.id;
 			}
-
-			return false;
 		},
 
 		countStockByMaterial: function(stock) {
-			var stockByMaterial = {
+			let stockByMaterial = {
 				1: 0,
 				2: 0,
 				3: 0,
 				4: 0,
 				5: 0,
 			};
-			var items = stock.getAllItems();
-			for (var i = 0; i < items.length; i++) {
-				var card = items[i];
-				var material = this.gamedatas.cards[card.type].material;
+			for (let card of stock.getAllItems()) {
+				let material = this.gamedatas.cards[card.type].material;
 				stockByMaterial[material] += 1;
 			}
 			return stockByMaterial;
@@ -435,6 +468,17 @@ function(dojo, declare) {
 			});
 		},
 
+		onSelectingCardToCraft: function(event) {
+			let card_id = dojo.attr(event.target, 'id').split('_').pop();
+			this.clientStateArgs['card_id'] = card_id;
+			this.setClientState('client_selectCraftWing', {
+				descriptionmyturn: _('${you} must select a wing for ${card_name}'),
+				args: {
+					card_name: this.gamedatas.card_id_to_type[card_id].name,
+				}
+			});
+		},
+
 		doClerk: function(event) {
 			dojo.stopEvent(event);
 			// TODO: Robe, Bell
@@ -466,6 +510,21 @@ function(dojo, declare) {
 		},
 
 		doCraft: function(event) {
+			this.setClientState('client_doCraft', {
+				descriptionmyturn: _('${you} must select a ${material_name} card to craft'),
+				args: {
+					material_name: this.gamedatas.materials[this.clientStateArgs.material].name,
+				}
+			});
+		},
+
+		doCraftWing: function(event, wing) {
+			dojo.stopEvent(event);
+			this.ajaxAction('chooseAction', {
+				action_: 'craft',
+				card_id: this.clientStateArgs['card_id'],
+				wing: wing,
+			});
 		},
 
 		doPray: function(event) {
@@ -499,6 +558,7 @@ function(dojo, declare) {
 			dojo.subscribe('chooseMonkCardFloor', this, 'notif_chooseMonkCardFloor');
 			dojo.subscribe('choosePotterCardFloor', this, 'notif_choosePotterCardFloor');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
+			dojo.subscribe('craftedWork', this, 'notif_craftedWork');
 			if (this.isSpectator) {
 				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
 			} else {
@@ -508,7 +568,7 @@ function(dojo, declare) {
 
 		notif_discardOldTask: function(notif) {
 			var card_id = notif.args.card_id;
-			var card_type = notif.args.card_type;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
 			var player_id = notif.args.player_id;
 			if (!notif.args.initial) {
 				this.players[player_id].task.removeFromStockById(card_id);
@@ -521,7 +581,7 @@ function(dojo, declare) {
 		notif_chooseNewTask: function(notif) {
 			var card_id = notif.args.card_id;
 			if (!card_id) return;
-			var card_type = notif.args.card_type;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
 			var player_id = notif.args.player_id;
 			if (player_id == this.getThisPlayerId()) {
 				this.playerHand.removeFromStockById(card_id);
@@ -535,7 +595,7 @@ function(dojo, declare) {
 		notif_chooseClerkCard: function(notif) {
 			var card_id = notif.args.card_id;
 			if (!card_id) return;
-			var card_type = notif.args.card_type;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
 			var player_id = notif.args.player_id;
 			this.players[player_id].craft_bench.removeFromStockById(card_id);
 			this.players[player_id].sales.addToStockWithId(card_type, card_id, this.players[player_id].craft_bench.container_div);
@@ -544,7 +604,7 @@ function(dojo, declare) {
 		notif_chooseMonkCardFloor: function(notif) {
 			var card_id = notif.args.card_id;
 			if (!card_id) return;
-			var card_type = notif.args.card_type;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
 			var player_id = notif.args.player_id;
 			this.floor.removeFromStockById(card_id);
 			this.players[player_id].helpers.addToStockWithId(card_type, card_id, this.floor.container_div);
@@ -553,7 +613,7 @@ function(dojo, declare) {
 		notif_choosePotterCardFloor: function(notif) {
 			var card_id = notif.args.card_id;
 			if (!card_id) return;
-			var card_type = notif.args.card_type;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
 			var player_id = notif.args.player_id;
 			this.floor.removeFromStockById(card_id);
 			this.players[player_id].craft_bench.addToStockWithId(card_type, card_id, this.floor.container_div);
@@ -563,6 +623,20 @@ function(dojo, declare) {
 			var player_id = notif.args.player_id;
 			this.deck_count.incValue(-1);
 			this.players[player_id].waiting_area.incValue(1);
+		},
+
+		notif_craftedWork: function(notif) {
+			let card_id = notif.args.card_id;
+			if (!card_id) return;
+			var card_type = this.gamedatas.card_id_to_type[card_id].id;
+			let player_id = notif.args.player_id;
+			if (player_id == this.getThisPlayerId()) {
+				this.playerHand.removeFromStockById(card_id);
+			} else {
+				this.players[player_id].hand_count.incValue(-1);
+			}
+			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
+			// TODO: Update score
 		},
 
 		notif_drawWaitingAreaSpectator: function(notif) {

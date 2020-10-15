@@ -19,6 +19,10 @@
  *
  */
 
+$this->wing_names = [
+    'gallery' => clienttranslate('Gallery'),
+    'gift_shop' => clienttranslate('Gift Shop'),
+];
 
 $this->materials = [
     1 => new MOT_Material(1, clienttranslate('Paper'), 1, '📜', clienttranslate('Clerk'), clienttranslate('Sell a material')),

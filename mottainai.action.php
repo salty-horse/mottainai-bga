@@ -44,10 +44,14 @@ class action_mottainai extends APP_GameAction
 
     public function chooseAction() {
         self::setAjaxMode();
-        $action = self::getArg('action_', AT_alphanum);
-        $work_to_create = null;
+        $action = self::getArg('action_', AT_alphanum, true);
+        $card_id = self::getArg('card_id', AT_posint);
+        $wing = self::getArg('wing', AT_alphanum);
+        if ($wing && !in_array($wing, ['gallery', 'gift_shop'])) {
+            throw new BgaUserException(self::_('Invalid wing'));
+        }
         $cards_to_reveal = null;
-        $this->game->chooseAction($action, $work_to_create, $cards_to_reveal);
+        $this->game->chooseAction($action, $card_id, $wing, $cards_to_reveal);
         self::ajaxResponse();
     }
 
