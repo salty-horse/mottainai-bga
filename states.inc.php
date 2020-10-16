@@ -52,7 +52,7 @@
 // States
 if (!defined('STATE_END_GAME')) {
 
-define('STATE_CHECK_HAND_SIZE', 2);
+define('STATE_NEW_TURN', 2);
 define('STATE_REDUCE_HAND', 3);
 define('STATE_MORNING_EFFECTS', 4);
 define('STATE_DISCARD_OLD_TASK', 5);
@@ -89,12 +89,25 @@ $machinestates = [
         'transitions' => ['' => STATE_DISCARD_OLD_TASK]
     ],
 
-    STATE_CHECK_HAND_SIZE => [
-        'name' => 'checkHandSize',
+    STATE_NEW_TURN => [
+        'name' => 'newTurn',
         'description' => '',
         'type' => 'game',
-        'action' => 'stCheckHandSize',
-        'transitions' => ['ok' => STATE_DISCARD_OLD_TASK] // TODO
+        'action' => 'stNewTurn',
+        'transitions' => [
+            'reduce_hand' => STATE_REDUCE_HAND,
+            'ok' => STATE_DISCARD_OLD_TASK,
+        ]
+    ],
+
+    STATE_REDUCE_HAND => [
+        'name' => 'reduceHand',
+        'description' => clienttranslate('${actplayer} must return ${count} card(s) from hand'),
+        'descriptionmyturn' => clienttranslate('${you} must return ${count} card(s) from your hand'),
+        'type' => 'activeplayer',
+        'args' => 'argReduceHand',
+        'possibleactions' => ['reduceHand'],
+        'transitions' => ['' => STATE_DISCARD_OLD_TASK]
     ],
 
     STATE_DISCARD_OLD_TASK => [
@@ -191,7 +204,7 @@ $machinestates = [
         'type' => 'game',
         'action' => 'stDrawWaitingArea',
         'transitions' => [
-            '' => STATE_CHECK_HAND_SIZE,
+            '' => STATE_NEW_TURN,
         ],
     ],
 

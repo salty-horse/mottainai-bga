@@ -35,6 +35,13 @@ class action_mottainai extends APP_GameAction
         }
     }
     
+    public function reduceHand() {
+        self::setAjaxMode();
+        $card_ids = self::getArg('ids', AT_numberlist, true);
+        $this->game->reduceHand(array_unique(explode(',', $card_ids)));
+        self::ajaxResponse();
+    }
+
     public function chooseNewTask() {
         self::setAjaxMode();
         $card_id = self::getArg('id', AT_posint);

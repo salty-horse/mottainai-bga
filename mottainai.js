@@ -129,6 +129,7 @@ function(dojo, declare) {
 			stock.jstpl_stock_item= "<div id=\"${id}\" class=\"card\" ></div>";
 			stock.centerItems = false;
 			// stock.setSelectionMode(0);
+			stock.setSelectionAppearance('');
 			stock.create(this, $(element_id), 5, 5);
 			stock.onItemCreate = dojo.hitch(this, 'setupNewCard');
 			for (let c in this.gamedatas.cards) {
@@ -188,6 +189,18 @@ function(dojo, declare) {
 			let player_id = this.getThisPlayerId();
 
 			switch (stateName) {
+			case 'reduceHand':
+				if (!this.isCurrentPlayerActive())
+					break;
+
+				this.reduceHandCards = new Set();
+				this.reduceHandTarget = args.args.count;
+				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+					this.selectableElements.push(node);
+					node.classList.add('selectable');
+					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingReduceHand'));
+				});
+				break;
 			case 'chooseNewTask':
 				if (!this.isCurrentPlayerActive())
 					break;
@@ -248,7 +261,7 @@ function(dojo, declare) {
 		onLeavingState: function(stateName) {
 			console.log('Leaving state:', stateName);
 			for (let elem of this.selectableElements) {
-				elem.classList.remove('selectable');
+				elem.classList.remove('selected', 'selectable');
 			};
 			for (let handle of this.connections) {
 				dojo.disconnect(handle);
@@ -264,6 +277,9 @@ function(dojo, declare) {
 			if (this.isCurrentPlayerActive()) {
 				let player_id = this.getThisPlayerId();
 				switch (stateName) {
+				case 'reduceHand':
+					this.addActionButton('button_reduce', _('Return cards'), 'doReduceHand', null, false, 'gray');
+					break;
 				case 'chooseNewTask':
 					this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
 					break;
@@ -426,10 +442,44 @@ function(dojo, declare) {
 
 		*/
 
+		doReduceHand: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('reduceHand')) return;
+			if (this.reduceHandCards.size < this.reduceHandTarget) return;
+			this.ajaxAction('reduceHand', {
+				ids: [...this.reduceHandCards].join(','),
+			});
+		},
+
 		doSkipNewTask: function(event) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseNewTask')) return;
 			this.ajaxAction('chooseNewTask');
+		},
+
+		onChoosingReduceHand: function(event) {
+			dojo.stopEvent(event);
+			if (!this.checkAction('reduceHand')) return;
+			let elem = event.target;
+			let card_id = elem.id.split('_').pop();
+			if (elem.classList.contains('selected')) {
+				elem.classList.add('selectable');
+				elem.classList.remove('selected');
+				this.reduceHandCards.delete(card_id);
+			} else if (this.reduceHandCards.size < this.reduceHandTarget) {
+				elem.classList.add('selected');
+				elem.classList.remove('selectable');
+				this.reduceHandCards.add(card_id);
+			}
+
+			let buttonElem = document.getElementById('button_reduce');
+			if (this.reduceHandCards.size == this.reduceHandTarget) {
+				buttonElem.classList.add('bgabutton_blue');
+				buttonElem.classList.remove('bgabutton_gray');
+			} else {
+				buttonElem.classList.add('bgabutton_gray');
+				buttonElem.classList.remove('bgabutton_blue');
+			}
 		},
 
 		onChoosingTask: function(event) {
@@ -564,8 +614,10 @@ function(dojo, declare) {
 			dojo.subscribe('craftedWork', this, 'notif_craftedWork');
 			if (this.isSpectator) {
 				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
+				dojo.subscribe('returnCardsSpectator', this, 'notif_returnCardsSpectator');
 			} else {
 				dojo.subscribe('drawWaitingArea', this, 'notif_drawWaitingArea');
+				dojo.subscribe('returnCards', this, 'notif_returnCards');
 			}
 		},
 
@@ -659,6 +711,26 @@ function(dojo, declare) {
 			} else {
 				this.players[player_id].hand_count.incValue(notif.args.card_count);
 			}
+		},
+
+		notif_returnCardsSpectator: function(notif) {
+			this.notif_returnCards(notif);
+		},
+
+		notif_returnCards: function(notif) {
+			let player_id = notif.args.player_id;
+			let card_count = notif.args.card_count;
+			this.players[player_id].waiting_area.setValue(0);
+			if (player_id == this.getThisPlayerId()) {
+				let cards = notif.args.cards;
+				for (let c of cards) {
+					this.playerHand.removeFromStockById(c);
+				}
+			} else {
+				this.players[player_id].hand_count.incValue(-card_count);
+			}
+			this.deck_count.incValue(card_count);
+			// TODO: Hide revealed cards
 		},
 	});
 });

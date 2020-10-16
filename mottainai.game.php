@@ -224,6 +224,55 @@ class Mottainai extends Table {
      * Each time a player is doing some game action, one of the methods below is called.
      * (note: each method below must match an input method in template.action.php)
      */
+    function reduceHand($card_ids) {
+        self::checkAction('reduceHand');
+        $player_id = self::getActivePlayerId();
+        $cards_in_hand = $this->deck->getCardsInLocation('hand', $player_id);
+        if (count($card_ids) != count($cards_in_hand) - 5) {
+            throw new BgaUserException(self::_('Received unexpected amount of cards.'));
+        }
+        $cards_in_hand = array_keys($cards_in_hand);
+        foreach ($card_ids as &$card) {
+            if (!in_array($card, $cards_in_hand)) {
+                throw new BgaUserException(self::_('You do not have that card.'));
+            }
+        }
+        foreach ($card_ids as &$card) {
+            $this->deck->insertCardOnExtremePosition($card, 'deck', false);
+        }
+        // TODO: Hide revealed cards
+
+        $players = self::loadPlayersBasicInfos();
+        $player_name = self::getActivePlayerName();
+        foreach ($players as $player => $info) {
+            if ($player == $player_id) {
+                // Notify active player with the actual cards
+                self::notifyPlayer($player, 'returnCards', '', [
+                    'player_id' => $player_id,
+                    'player_name' => $player_name,
+                    'card_count' => count($card_ids),
+                    'cards' => $card_ids,
+                ]);
+            } else {
+                // Notify other players with number of cards
+                self::notifyPlayer($player, 'returnCards', '', [
+                    'player_id' => $player_id,
+                    'player_name' => $player_name,
+                    'card_count' => count($card_ids),
+                ]);
+            }
+        }
+
+        // Notify spectators
+        self::notifyAllPlayers('returnCardsSpectator', clienttranslate('${player_name} returns ${card_count} card(s) from hand'), [
+            'player_id' => $player_id,
+            'player_name' => $player_name,
+            'card_count' => count($card_ids),
+        ]);
+
+        $this->gamestate->nextState();
+    }
+
     function chooseNewTask($card_id) {
         self::checkAction('chooseNewTask');
         $player_id = self::getActivePlayerId();
@@ -393,6 +442,11 @@ class Mottainai extends Table {
      * game state.
      */
 
+    function argReduceHand() {
+        return [
+            'count' => intval($this->deck->countCardInLocation('hand', self::getActivePlayerId())) - 5,
+        ];
+    }
     function argPerformAction() {
         $current_task = self::getGameStateValue('currentTask');
         return [
@@ -411,9 +465,15 @@ class Mottainai extends Table {
      * The action method of state X is called everytime the current game state is set to X.
      */
 
-    function stCheckHandSize() {
+    function stNewTurn() {
         self::activeNextPlayer();
-        $this->gamestate->nextState();
+
+        if (intval($this->deck->countCardInLocation('hand', self::getActivePlayerId())) > 5) {
+            $this->gamestate->nextState('reduce_hand');
+            return;
+        }
+        // TODO: Frog: extra turn
+        $this->gamestate->nextState('ok');
     }
 
     function stDiscardOldTask() {
