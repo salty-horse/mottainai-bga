@@ -195,41 +195,6 @@ $machinestates = [
         ],
     ],
 
-    // Trick
-
-    30 => [
-        'name' => 'newTrick',
-        'description' => '',
-        'type' => 'game',
-        'action' => 'stNewTrick',
-        'transitions' => ['' => 31]
-    ],
-    31 => [
-        'name' => 'playerTurn',
-        'description' => clienttranslate('${actplayer} must play a card'),
-        'descriptionmyturn' => clienttranslate('${you} must play a card'),
-        'type' => 'activeplayer',
-        'possibleactions' => ['playCard'],
-        'transitions' => ['playCard' => 32]
-    ],
-    32 => [
-        'name' => 'nextPlayer',
-        'description' => '',
-        'type' => 'game',
-        'action' => 'stNextPlayer',
-        'transitions' => ['nextPlayer' => 31, 'nextTrick' => 30, 'endHand' => 40]
-    ],
-
-
-    // End of the hand (scoring, etc...)
-    40 => [
-        'name' => 'endHand',
-        'description' => '',
-        'type' => 'game',
-        'action' => 'stEndHand',
-        'transitions' => ['nextHand' => 20, 'endGame' => STATE_END_GAME]
-    ],
-
     // Final state.
     // Please do not modify.
     STATE_END_GAME => [
