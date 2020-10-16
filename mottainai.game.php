@@ -258,124 +258,128 @@ class Mottainai extends Table {
     function chooseAction($action, $card_id, $wing, $cards_to_reveal) {
         self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
+
+        // PRAY
         if ($action == 'pray') {
             $this->gamestate->nextState('pray');
             return;
-        } else {
-            $current_task = self::getGameStateValue('currentTask');
-            if ($action == 'craft') {
-                $card = $this->deck->getCard($card_id);
-                if (!$card || $card['location'] != 'hand' || $card['location_arg'] != $player_id) {
-                    throw new BgaUserException(self::_('This card is not allowed.'));
-                }
-                $card_info = $this->cards[$card['type_arg']];
-                if ($card_info->material->id != $current_task) {
-                    throw new BgaUserException(self::_('Cannot craft this material.'));
-                }
-                if ($card_info->material->value > 1) {
-                    $bench_cards = $this->deck->getCardsInLocation('craft_bench', $player_id);
-                    $bench_count = 0;
-                    foreach ($bench_cards as $bench_card_id => $bench_card) {
-                        if ($bench_card->material->id == $current_task) {
-                            $bench_count++;
-                        }
-                    }
-                    if ($bench_count < $card_info->material->value - 1) {
-                        throw new BgaUserException(self::_('Not enough materials in Craft Bench.'));
-                    }
-                }
+        }
 
-                $this->deck->moveCard($card_id, $wing, $player_id);
-                self::setGameStateValue('completedCard', $card_id);
+        $current_task = self::getGameStateValue('currentTask');
 
-                # TODO: update score - maybe in stCompletedWork since it can be affected by card effects
-
-                self::notifyAllPlayers('craftedWork', clienttranslate('${player_name} crafts ${card_name} into the ${wing_name}'), [
-                    'i18n' => ['card_name', 'wing_name'],
-                    'card_id' => $card_id,
-                    'wing' => $wing,
-                    'player_id' => $player_id,
-                    'player_name' => self::getActivePlayerName(),
-                    'card_name' => $card_info->name,
-                    'wing_name' => $this->wing_names[$wing],
-                ]);
-
-                $this->gamestate->nextState('completed_work');
-                return;
-
-            } else {
-                // TODO other actions
-                throw new BgaUserException(self::_('Unsupported action.'));
+        // CLERK
+        if ($action == 'clerk') {
+            if ($current_task != $this->PAPER->id) {
+                throw new BgaUserException(self::_('Action does not match task.'));
             }
+            $card = $this->deck->getCard($card_id);
+            if (!$card || $card['location'] != 'craft_bench' || $card['location_arg'] != $player_id) {
+                throw new BgaUserException(self::_('This card is not allowed.'));
+            }
+            $this->deck->moveCard($card_id, 'sales', $player_id);
+
+            $card_info = $this->cards[$card['type_arg']];
+
+            // TODO: Update score
+
+            self::notifyAllPlayers('chooseClerkCard', clienttranslate('${player_name} sells ${card_name} from the Craft Bench'), [
+                'i18n' => ['card_name'],
+                'card_id' => $card_id,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+            ]);
+
+        // MONK
+        } else if ($action == 'monk') {
+            if ($current_task != $this->STONE->id) {
+                throw new BgaUserException(self::_('Action does not match task.'));
+            }
+            $card = $this->deck->getCard($card_id);
+            // TODO: Socks, Flute, Sword
+            if (!$card || $card['location'] != 'floor') {
+                throw new BgaUserException(self::_('This card is not allowed.'));
+            }
+            $this->deck->moveCard($card_id, 'helpers', $player_id);
+
+            $card_info = $this->cards[$card['type_arg']];
+
+            self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} hires ${card_name} from the Floor'), [
+                'i18n' => ['card_name'],
+                'card_id' => $card_id,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+            ]);
+
+        // POTTER
+        } else if ($action == 'potter') {
+            if ($current_task != $this->CLAY->id) {
+                throw new BgaUserException(self::_('Action does not match task.'));
+            }
+            $card = $this->deck->getCard($card_id);
+            // TODO: Socks, Flute, Sword
+            if (!$card || $card['location'] != 'floor') {
+                throw new BgaUserException(self::_('This card is not allowed.'));
+            }
+            $this->deck->moveCard($card_id, 'craft_bench', $player_id);
+
+            $card_info = $this->cards[$card['type_arg']];
+
+            self::notifyAllPlayers('choosePotterCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor to the Craft Bench'), [
+                'i18n' => ['card_name'],
+                'card_id' => $card_id,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+            ]);
+            // TODO: Plane
+
+        // CRAFT
+        } else if ($action == 'craft') {
+            $card = $this->deck->getCard($card_id);
+            if (!$card || $card['location'] != 'hand' || $card['location_arg'] != $player_id) {
+                throw new BgaUserException(self::_('This card is not allowed.'));
+            }
+            $card_info = $this->cards[$card['type_arg']];
+            if ($card_info->material->id != $current_task) {
+                throw new BgaUserException(self::_('Cannot craft this material.'));
+            }
+            if ($card_info->material->value > 1) {
+                $bench_cards = $this->deck->getCardsInLocation('craft_bench', $player_id);
+                $bench_count = 0;
+                foreach ($bench_cards as $bench_card_id => $bench_card) {
+                    if ($bench_card->material->id == $current_task) {
+                        $bench_count++;
+                    }
+                }
+                if ($bench_count < $card_info->material->value - 1) {
+                    throw new BgaUserException(self::_('Not enough materials in Craft Bench.'));
+                }
+            }
+
+            $this->deck->moveCard($card_id, $wing, $player_id);
+            self::setGameStateValue('completedCard', $card_id);
+
+            // TODO: update score - maybe in stCompletedWork since it can be affected by card effects
+
+            self::notifyAllPlayers('craftedWork', clienttranslate('${player_name} crafts ${card_name} into the ${wing_name}'), [
+                'i18n' => ['card_name', 'wing_name'],
+                'card_id' => $card_id,
+                'wing' => $wing,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+                'wing_name' => $this->wing_names[$wing],
+            ]);
+
+            $this->gamestate->nextState('completed_work');
+            return;
+
+        } else {
+            // TODO other actions
+            throw new BgaUserException(self::_('Unsupported action.'));
         }
-        $this->gamestate->nextState('next');
-    }
-
-    function chooseClerkCard($card_id) {
-        self::checkAction('chooseAction');
-        $player_id = self::getActivePlayerId();
-        $card = $this->deck->getCard($card_id);
-        if (!$card || $card['location'] != 'craft_bench' || $card['location_arg'] != $player_id) {
-            throw new BgaUserException(self::_('This card is not allowed.'));
-        }
-        $this->deck->moveCard($card_id, 'sales', $player_id);
-
-        $card_info = $this->cards[$card['type_arg']];
-
-        // TODO: Update score
-
-        self::notifyAllPlayers('chooseClerkCard', clienttranslate('${player_name} sells ${card_name} from the Craft Bench'), [
-            'i18n' => ['card_name'],
-            'card_id' => $card_id,
-            'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),
-            'card_name' => $card_info->name,
-        ]);
-        $this->gamestate->nextState('next');
-    }
-
-    function chooseMonkCard($card_id) {
-        self::checkAction('chooseAction');
-        $player_id = self::getActivePlayerId();
-        $card = $this->deck->getCard($card_id);
-        // TODO: Socks, Flute, Sword
-        if (!$card || $card['location'] != 'floor') {
-            throw new BgaUserException(self::_('This card is not allowed.'));
-        }
-        $this->deck->moveCard($card_id, 'helpers', $player_id);
-
-        $card_info = $this->cards[$card['type_arg']];
-
-        self::notifyAllPlayers('chooseMonkCardFloor', clienttranslate('${player_name} hires ${card_name} from the Floor'), [
-            'i18n' => ['card_name'],
-            'card_id' => $card_id,
-            'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),
-            'card_name' => $card_info->name,
-        ]);
-        $this->gamestate->nextState('next');
-    }
-
-    function choosePotterCard($card_id) {
-        self::checkAction('chooseAction');
-        $player_id = self::getActivePlayerId();
-        $card = $this->deck->getCard($card_id);
-        // TODO: Socks, Flute, Sword
-        if (!$card || $card['location'] != 'floor') {
-            throw new BgaUserException(self::_('This card is not allowed.'));
-        }
-        $this->deck->moveCard($card_id, 'craft_bench', $player_id);
-
-        $card_info = $this->cards[$card['type_arg']];
-
-        self::notifyAllPlayers('choosePotterCardFloor', clienttranslate('${player_name} collects ${card_name} from the Floor to the Craft Bench'), [
-            'i18n' => ['card_name'],
-            'card_id' => $card_id,
-            'player_id' => $player_id,
-            'player_name' => self::getActivePlayerName(),
-            'card_name' => $card_info->name,
-        ]);
-        // TODO: Plane
         $this->gamestate->nextState('next');
     }
 

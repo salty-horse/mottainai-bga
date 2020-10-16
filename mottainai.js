@@ -445,8 +445,9 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
-			this.ajaxAction('chooseClerkCard', {
-				id: card_id,
+			this.ajaxAction('chooseAction', {
+				action_: 'clerk',
+				card_id: card_id,
 			});
 		},
 
@@ -454,8 +455,9 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
-			this.ajaxAction('chooseMonkCard', {
-				id: card_id,
+			this.ajaxAction('chooseAction', {
+				action_: 'monk',
+				card_id: card_id,
 			});
 		},
 
@@ -463,8 +465,9 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
-			this.ajaxAction('choosePotterCard', {
-				id: card_id,
+			this.ajaxAction('chooseAction', {
+				action_: 'potter',
+				card_id: card_id,
 			});
 		},
 
