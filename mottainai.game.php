@@ -349,7 +349,8 @@ class Mottainai extends Table {
                 $bench_cards = $this->deck->getCardsInLocation('craft_bench', $player_id);
                 $bench_count = 0;
                 foreach ($bench_cards as $bench_card_id => $bench_card) {
-                    if ($bench_card->material->id == $current_task) {
+                    $bench_card_info = $this->cards[$bench_card['type_arg']];
+                    if ($bench_card_info->material->id == $current_task) {
                         $bench_count++;
                     }
                 }
