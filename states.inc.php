@@ -102,8 +102,8 @@ $machinestates = [
 
     STATE_REDUCE_HAND => [
         'name' => 'reduceHand',
-        'description' => clienttranslate('${actplayer} must return ${count} card(s) from hand'),
-        'descriptionmyturn' => clienttranslate('${you} must return ${count} card(s) from your hand'),
+        'description' => clienttranslate('Morning: ${actplayer} must return ${count} card(s) from hand'),
+        'descriptionmyturn' => clienttranslate('Morning: ${you} must return ${count} card(s) from your hand'),
         'type' => 'activeplayer',
         'args' => 'argReduceHand',
         'possibleactions' => ['reduceHand'],
@@ -120,8 +120,8 @@ $machinestates = [
 
     STATE_CHOOSE_NEW_TASK => [
         'name' => 'chooseNewTask',
-        'description' => clienttranslate('${actplayer} may choose a new task'),
-        'descriptionmyturn' => clienttranslate('${you} may choose a new task'),
+        'description' => clienttranslate('Morning: ${actplayer} may choose a new task'),
+        'descriptionmyturn' => clienttranslate('Morning: ${you} may choose a new task'),
         'type' => 'activeplayer',
         'possibleactions' => ['chooseNewTask'],
         'transitions' => ['chooseNewTask' => STATE_PERFORM_NEXT_PLAYER_TASK]
@@ -165,8 +165,8 @@ $machinestates = [
 
     STATE_PERFORM_ACTION => [
         'name' => 'chooseAction',
-        'description' => clienttranslate('${actplayer} must perform ${task_name} action ${action_count} of ${action_total}'),
-        'descriptionmyturn' => clienttranslate('${you} must perform ${task_name} action ${action_count} of ${action_total}'),
+        'description' => clienttranslate('Noon: ${actplayer} must perform ${task_name} action ${action_count} of ${action_total}'),
+        'descriptionmyturn' => clienttranslate('Noon: ${you} must perform ${task_name} action ${action_count} of ${action_total}'),
         'type' => 'activeplayer',
         'args' => 'argPerformAction',
         'possibleactions' => ['chooseAction'],
