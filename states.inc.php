@@ -174,6 +174,7 @@ $machinestates = [
             'pray' => STATE_PERFORM_PRAY,
             'completed_work' => STATE_COMPLETED_WORK,
             'next' => STATE_PERFORM_NEXT_ACTION,
+            'end_game' => STATE_END_GAME,
         ],
     ],
 

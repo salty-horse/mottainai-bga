@@ -307,7 +307,7 @@ class Mottainai extends Table {
         $this->gamestate->nextState('chooseNewTask');
     }
 
-    function chooseAction($action, $card_id, $wing, $cards_to_reveal) {
+    function chooseAction($action, $card_id, $wing, $card_list) {
         self::checkAction('chooseAction');
         $player_id = self::getActivePlayerId();
 
@@ -363,6 +363,81 @@ class Mottainai extends Table {
                 'player_name' => self::getActivePlayerName(),
                 'card_name' => $card_info->name,
             ]);
+
+        // TAILOR
+        } else if ($action == 'tailor') {
+            if ($current_task != $this->CLOTH->id) {
+                throw new BgaUserException(self::_('Action does not match task.'));
+            }
+            $cards_in_hand = $this->deck->getCardsInLocation('hand', $player_id);
+            if (count($card_list) > count($cards_in_hand)) {
+                throw new BgaUserException(self::_('Received unexpected amount of cards.'));
+            }
+            $cards_in_hand = array_keys($cards_in_hand);
+            foreach ($card_list as &$card) {
+                if (!in_array($card, $cards_in_hand)) {
+                    throw new BgaUserException(self::_('You do not have that card.'));
+                }
+            }
+
+            // Return cards to deck
+            foreach ($card_list as &$card) {
+                $this->deck->insertCardOnExtremePosition($card, 'deck', false);
+            }
+
+            // TODO: Hide revealed cards
+
+            // Draw cards to waiting area
+            $cards_to_draw = 5 - (count($cards_in_hand) - count($card_list)) -
+                intval($this->deck->countCardInLocation('waiting_area', $player_id));
+            $deck_count = intval($this->deck->countCardInLocation('deck'));
+            $cards_drawn = 0;
+            for ($i = 0; $i < $cards_to_draw; $i++) {
+                $this->deck->pickCardForLocation('deck', 'waiting_area', $player_id);
+                $cards_drawn++;
+                $deck_count--;
+                if ($deck_count == 0) {
+                    break;
+                }
+            }
+
+            // Notify everyone
+            $players = self::loadPlayersBasicInfos();
+            $player_name = self::getActivePlayerName();
+            foreach ($players as $player => $info) {
+                if ($player == $player_id) {
+                    // Notify active player with the actual cards
+                    self::notifyPlayer($player, 'chooseTailorCards', '', [
+                        'player_id' => $player_id,
+                        'player_name' => $player_name,
+                        'return_count' => count($card_list),
+                        'draw_count' => $cards_drawn,
+                        'cards' => $card_list,
+                    ]);
+                } else {
+                    // Notify other players with number of cards
+                    self::notifyPlayer($player, 'chooseTailorCards', '', [
+                        'player_id' => $player_id,
+                        'player_name' => $player_name,
+                        'return_count' => count($card_list),
+                        'draw_count' => $cards_drawn,
+                    ]);
+                }
+            }
+
+            // Notify spectators
+            self::notifyAllPlayers('chooseTailorCardsSpectator', clienttranslate('${player_name} tailors, returning ${return_count} card(s) and drawing ${draw_count}'), [
+                'player_id' => $player_id,
+                'player_name' => $player_name,
+                'return_count' => count($card_list),
+                'draw_count' => $cards_drawn,
+            ]);
+
+            if ($deck_count == 0) {
+                // TODO: Notify players why the game is over
+                $this->gamestate->nextState('end_game');
+                return;
+            }
 
         // POTTER
         } else if ($action == 'potter') {

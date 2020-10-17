@@ -57,8 +57,11 @@ class action_mottainai extends APP_GameAction
         if ($wing && !in_array($wing, ['gallery', 'gift_shop'])) {
             throw new BgaUserException(self::_('Invalid wing'));
         }
-        $cards_to_reveal = null;
-        $this->game->chooseAction($action, $card_id, $wing, $cards_to_reveal);
+        $card_list = self::getArg('card_list', AT_numberlist);
+        if ($card_list) {
+            $card_list = array_unique(explode(',', $card_list));
+        }
+        $this->game->chooseAction($action, $card_id, $wing, $card_list);
         self::ajaxResponse();
     }
 

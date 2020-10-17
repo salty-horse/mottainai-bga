@@ -231,6 +231,16 @@ function(dojo, declare) {
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingMonkFloorCard'));
 				});
 				break;
+			case 'client_doTailor':
+				if (!this.isCurrentPlayerActive())
+					break;
+				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+					this.selectableElements.push(node);
+					node.classList.add('selectable');
+					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingTailorHandCard'));
+				});
+				break;
+
 			case 'client_doPotter':
 				if (!this.isCurrentPlayerActive())
 					break;
@@ -325,6 +335,12 @@ function(dojo, declare) {
 				case 'client_doMonk':
 				case 'client_doPotter':
 				case 'client_doCraft':
+					this.addActionButton('button_1_id', _('Cancel'), () => {
+						this.restoreServerGameState();
+					});
+					break;
+				case 'client_doTailor':
+					this.addActionButton('button_tailor', this.getTailorButtonText(0), 'confirmTailor');
 					this.addActionButton('button_1_id', _('Cancel'), () => {
 						this.restoreServerGameState();
 					});
@@ -428,6 +444,15 @@ function(dojo, declare) {
 			return stockByMaterial;
 		},
 
+		getTailorButtonText: function(return_count) {
+			let draw_count = Math.max(0, 5 - (this.playerHand.count() - this.tailorHandCards.size) -
+				this.players[this.getCurrentPlayerId()].waiting_area.getValue());
+			return dojo.string.substitute(_('Return ${return} cards & draw ${draw}'), {
+				return: return_count,
+				draw: draw_count,
+			});
+		},
+
 		///////////////////////////////////////////////////
 		//// Player's action
 
@@ -515,6 +540,32 @@ function(dojo, declare) {
 			});
 		},
 
+		onChoosingTailorHandCard: function(event) {
+			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
+			if (!this.checkAction('chooseAction')) return;
+			let elem = event.target;
+			let card_id = elem.id.split('_').pop();
+			if (elem.classList.contains('selected')) {
+				elem.classList.add('selectable');
+				elem.classList.remove('selected');
+				this.tailorHandCards.delete(card_id);
+			} else {
+				elem.classList.add('selected');
+				elem.classList.remove('selectable');
+				this.tailorHandCards.add(card_id);
+			}
+
+			document.getElementById('button_tailor').textContent = this.getTailorButtonText(this.tailorHandCards.size);
+		},
+
+		confirmTailor: function(event) {
+			this.ajaxAction('chooseAction', {
+				action_: 'tailor',
+				card_list: [...this.tailorHandCards].join(','),
+			});
+		},
+
 		onChoosingPotterFloorCard: function(event) {
 			dojo.stopEvent(event);
 			if (this.isInterfaceLocked()) return;
@@ -530,7 +581,7 @@ function(dojo, declare) {
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.clientStateArgs['card_id'] = card_id;
 			this.setClientState('client_selectCraftWing', {
-				descriptionmyturn: _('${you} must select a wing for ${card_name}'),
+				descriptionmyturn: _('Select a wing for ${card_name}'),
 				args: {
 					card_name: this.gamedatas.card_id_to_type[card_id].name,
 				}
@@ -541,7 +592,7 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			// TODO: Robe, Bell
 			this.setClientState('client_doClerk', {
-				descriptionmyturn: _('${you} must select a card from the Craft Bench to sell'),
+				descriptionmyturn: _('Select a card from the Craft Bench to sell'),
 			});
 		},
 
@@ -549,18 +600,23 @@ function(dojo, declare) {
 			dojo.stopEvent(event);
 			// TODO: Flute, Sword
 			this.setClientState('client_doMonk', {
-				descriptionmyturn: _('${you} must select a card from the Floor to add to your Helpers'),
+				descriptionmyturn: _('Select a card from the Floor to add to your Helpers'),
 			});
 		},
 
 		doTailor: function(event) {
+			dojo.stopEvent(event);
+			this.tailorHandCards = new Set();
+			this.setClientState('client_doTailor', {
+				descriptionmyturn: _('Select any cards from your hand to return to the deck'),
+			});
 		},
 
 		doPotter: function(event) {
 			dojo.stopEvent(event);
 			// TODO: Socks, Flute, Sword
 			this.setClientState('client_doPotter', {
-				descriptionmyturn: _('${you} must select a card from the Floor to add to your Craft Bench'),
+				descriptionmyturn: _('Select a card from the Floor to add to your Craft Bench'),
 			});
 		},
 
@@ -569,7 +625,7 @@ function(dojo, declare) {
 
 		doCraft: function(event) {
 			this.setClientState('client_doCraft', {
-				descriptionmyturn: _('${you} must select a ${material_name} card to craft'),
+				descriptionmyturn: _('Select a ${material_name} card to craft'),
 				args: {
 					material_name: this.gamedatas.materials[this.clientStateArgs.material].name,
 				}
@@ -620,9 +676,11 @@ function(dojo, declare) {
 			if (this.isSpectator) {
 				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
 				dojo.subscribe('returnCardsSpectator', this, 'notif_returnCardsSpectator');
+				dojo.subscribe('chooseTailorCardsSpectator', this, 'notif_chooseTailorCardsSpectator');
 			} else {
 				dojo.subscribe('drawWaitingArea', this, 'notif_drawWaitingArea');
 				dojo.subscribe('returnCards', this, 'notif_returnCards');
+				dojo.subscribe('chooseTailorCards', this, 'notif_chooseTailorCards');
 			}
 		},
 
@@ -707,7 +765,7 @@ function(dojo, declare) {
 			let player_id = notif.args.player_id;
 			let card_count = notif.args.ca;
 			this.players[player_id].waiting_area.setValue(0);
-			if (player_id == this.getThisPlayerId()) {
+			if (player_id == this.getThisPlayerId() && !this.isSpectator) {
 				let cards = notif.args.cards;
 				for (let c in cards) {
 					let card = cards[c];
@@ -727,7 +785,7 @@ function(dojo, declare) {
 			let player_id = notif.args.player_id;
 			let card_count = notif.args.card_count;
 			this.players[player_id].waiting_area.setValue(0);
-			if (player_id == this.getThisPlayerId()) {
+			if (player_id == this.getThisPlayerId() && !this.isSpectator) {
 				let cards = notif.args.cards;
 				for (let c of cards) {
 					this.playerHand.removeFromStockById(c, 'deck_count', true);
@@ -737,6 +795,29 @@ function(dojo, declare) {
 				this.players[player_id].hand_count.incValue(-card_count);
 			}
 			this.deck_count.incValue(card_count);
+			// TODO: Hide revealed cards
+		},
+
+		notif_chooseTailorCardsSpectator: function(notif) {
+			this.notif_returnCards(notif);
+		},
+
+		notif_chooseTailorCards: function(notif) {
+			let player_id = notif.args.player_id;
+			let return_count = notif.args.return_count;
+			let draw_count = notif.args.draw_count;
+			this.players[player_id].waiting_area.setValue(0);
+			if (player_id == this.getThisPlayerId() && !this.isSpectator) {
+				let cards = notif.args.cards;
+				for (let c of cards) {
+					this.playerHand.removeFromStockById(c, 'deck_count', true);
+				}
+				this.playerHand.updateDisplay();
+			} else {
+				this.players[player_id].hand_count.incValue(-return_count);
+			}
+			this.players[player_id].waiting_area.incValue(draw_count);
+			this.deck_count.incValue(return_count - draw_count);
 			// TODO: Hide revealed cards
 		},
 	});
