@@ -713,6 +713,7 @@ function(dojo, declare) {
 					let card = cards[c];
 					this.playerHand.addToStockWithId(card.type_arg, card.id, this.players[player_id].waiting_area.container_div);
 				}
+				this.playerHand.updateDisplay();
 			} else {
 				this.players[player_id].hand_count.incValue(notif.args.card_count);
 			}
@@ -729,8 +730,9 @@ function(dojo, declare) {
 			if (player_id == this.getThisPlayerId()) {
 				let cards = notif.args.cards;
 				for (let c of cards) {
-					this.playerHand.removeFromStockById(c);
+					this.playerHand.removeFromStockById(c, 'deck_count', true);
 				}
+				this.playerHand.updateDisplay();
 			} else {
 				this.players[player_id].hand_count.incValue(-card_count);
 			}
