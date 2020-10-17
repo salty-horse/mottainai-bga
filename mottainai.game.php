@@ -90,7 +90,8 @@ class Mottainai extends Table {
         self::setGameStateInitialValue('completedCard', 0);
 
         // Init game statistics
-        // (note: statistics are defined in your stats.inc.php file)
+        self::initStat('player', 'turns_number', 0);
+        self::initStat('table', 'turns_number', 1);
 
         // Create cards
         $cards = [];
@@ -117,6 +118,8 @@ class Mottainai extends Table {
 
         // Activate first player (which is in general a good idea :))
         $this->activeNextPlayer();
+
+        self::incStat(1, 'turns_number', self::getActivePlayerId());
 
 
         /************ End of the game initialization *****/
@@ -467,6 +470,8 @@ class Mottainai extends Table {
 
     function stNewTurn() {
         self::activeNextPlayer();
+        self::incStat(1, 'turns_number');
+        self::incStat(1, 'turns_number', self::getActivePlayerId());
 
         if (intval($this->deck->countCardInLocation('hand', self::getActivePlayerId())) > 5) {
             $this->gamestate->nextState('reduce_hand');
