@@ -459,6 +459,7 @@ function(dojo, declare) {
 
 		onChoosingReduceHand: function(event) {
 			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
 			if (!this.checkAction('reduceHand')) return;
 			let elem = event.target;
 			let card_id = elem.id.split('_').pop();
@@ -484,6 +485,7 @@ function(dojo, declare) {
 
 		onChoosingTask: function(event) {
 			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
 			if (!this.checkAction('chooseNewTask')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.ajaxAction('chooseNewTask', {
@@ -493,6 +495,7 @@ function(dojo, declare) {
 
 		onChoosingClerkCard: function(event) {
 			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.ajaxAction('chooseAction', {
@@ -503,6 +506,7 @@ function(dojo, declare) {
 
 		onChoosingMonkFloorCard: function(event) {
 			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.ajaxAction('chooseAction', {
@@ -513,6 +517,7 @@ function(dojo, declare) {
 
 		onChoosingPotterFloorCard: function(event) {
 			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
 			if (!this.checkAction('chooseAction')) return;
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.ajaxAction('chooseAction', {
