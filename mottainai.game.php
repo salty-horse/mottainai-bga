@@ -641,29 +641,33 @@ class Mottainai extends Table {
         }
 
         $task_card = array_values($task_card)[0];
+        $task_material = $this->cards[$task_card['type_arg']]->material;
+        $task_material_id = $task_material->id;
 
-        // TODO: Calculate how many actions
-        // self.actions_to_perform = 1 + \
-        //     sum(1 for helper in self.active_player.helpers
-        //         if helper.material == task.material) + \
-        //         self.active_player.covered_helpers[task.material]
-        //
+        // Count helpers
+        $matching_helpers = 0;
+        $helpers = $this->deck->getCardsInLocation('helpers', $player_id);
+        foreach ($helpers as &$card) {
+            $card_info = $this->cards[$card['type_arg']];
+            if ($card_info->material->id == $task_material_id) {
+                $matching_helpers++;
+            }
+        }
 
-        // def calculate_cover(self):
-        //     self.covered_helpers = Counter()
-        //     helpers_by_material = Counter(helper.material for helper in self.helpers)
-        //     gallery_works_by_material = Counter(work.material for work in self.gallery)
-        //     for material, count in helpers_by_material.items():
-        //         if count <= gallery_works_by_material[material] * material.value:
-        //             self.covered_helpers[material] = helpers_by_material[material]
+        // Count covered helpers
+        $matching_gallery_works = 0;
+        $gallery_works = $this->deck->getCardsInLocation('gallery', $player_id);
+        foreach ($gallery_works as &$work) {
+            $card_info = $this->cards[$work['type_arg']];
+            if ($card_info->material->id == $task_material_id) {
+                $matching_gallery_works++;
+            }
+        }
 
-        //     self.covered_sales_value = Counter()
-        //     sales_by_material = Counter(helper.material for helper in self.sales)
-        //     gift_shop_works_by_material = Counter(work.material for work in self.gift_shop)
-        //     for material, count in sales_by_material.items():
-        //         if count <= gift_shop_works_by_material[material] * material.value:
-        //             self.covered_sales_value[material] = count * material.value
-        $actions = 1;
+        $actions = 1 + $matching_helpers;
+        if ($matching_helpers <= $matching_gallery_works * $task_material->value) {
+            $actions += $matching_helpers;
+        }
 
         self::setGameStateValue('currentTaskActionCurrent', 0);
         self::setGameStateValue('currentTaskActionTotal', $actions);
