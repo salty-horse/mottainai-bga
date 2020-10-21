@@ -251,6 +251,31 @@ function(dojo, declare) {
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingPotterFloorCard'));
 				});
 				break;
+			case 'client_doSmith':
+				if (!this.isCurrentPlayerActive())
+					break;
+				for (let card_id of this.getSmithableCards()) {
+					let node = document.getElementById(`player_${player_id}_hand_item_${card_id}`);
+					this.selectableElements.push(node);
+					node.classList.add('selectable');
+					this.connections.push(dojo.connect(node, 'onclick', this, 'onSelectingCardToSmith'));
+				}
+				break;
+			case 'client_selectSmithRevealCards':
+				if (!this.isCurrentPlayerActive())
+					break;
+				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+					let card_id = node.id.split('_').pop();
+					if (card_id == this.clientStateArgs.card_id)
+						return;
+					let card_material = this.gamedatas.card_id_to_type[card_id].material;
+					if (card_material != this.clientStateArgs.material_id)
+						return;
+					this.selectableElements.push(node);
+					node.classList.add('selectable');
+					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingSmithRevealCard'));
+				});
+				break;
 			case 'client_doCraft':
 				if (!this.isCurrentPlayerActive())
 					break;
@@ -294,6 +319,7 @@ function(dojo, declare) {
 					this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
 					break;
 				case 'chooseAction':
+					this.clientStateArgs = {};
 					let task_id = args.task_id;
 					if (this.canPerformTask(task_id)) {
 						if (task_id == 1) { // Clerk
@@ -318,9 +344,7 @@ function(dojo, declare) {
 						let craft_string = dojo.string.substitute(_('Craft a ${material} work'), {
 							material: this.gamedatas.materials[task_id].name
 						});
-						this.clientStateArgs = {
-							material: task_id,
-						};
+						this.clientStateArgs.material = task_id;
 						this.addActionButton('button_6_id', craft_string, 'doCraft');
 					}
 					// TODO: Allow praying for all remaining actions
@@ -334,6 +358,7 @@ function(dojo, declare) {
 				case 'client_doClerk':
 				case 'client_doMonk':
 				case 'client_doPotter':
+				case 'client_doSmith':
 				case 'client_doCraft':
 					this.addActionButton('button_1_id', _('Cancel'), () => {
 						this.restoreServerGameState();
@@ -345,13 +370,26 @@ function(dojo, declare) {
 						this.restoreServerGameState();
 					});
 					break;
-				case 'client_selectCraftWing':
+				case 'client_selectSmithCraftWing':
 					this.addActionButton('button_1_id', _('Gallery'), event => {
-						this.doCraftWing(event, 'gallery');
+						this.doSmithCraftWing(event, 'gallery');
 					});
 					this.addActionButton('button_2_id', _('Gift Shop'), event => {
-						this.doCraftWing(event, 'gift_shop');
+						this.doSmithCraftWing(event, 'gift_shop');
 					});
+					this.addActionButton('button_3_id', _('Cancel'), () => {
+						this.restoreServerGameState();
+					});
+					break;
+				case 'client_selectSmithRevealCards':
+					this.addActionButton('button_smith_reveal', _('Confirm'), () => {
+						this.setClientState('client_selectSmithCraftWing', {
+							descriptionmyturn: _('Select a wing for ${card_name}'),
+							args: {
+								card_name: this.gamedatas.card_id_to_type[this.clientStateArgs.card_id].name,
+							}
+						});
+					}, null, false, 'gray');
 					this.addActionButton('button_3_id', _('Cancel'), () => {
 						this.restoreServerGameState();
 					});
@@ -410,6 +448,21 @@ function(dojo, declare) {
 			}
 
 			return false;
+		},
+
+		canPerformSmith: function() {
+			return Boolean(this.getSmithableCards().next().value);
+		},
+
+		getSmithableCards: function*() {
+			// TODO: Consider Crane, Straw, Brick effects that reduce cost
+			let benchMaterials = this.countStockByMaterial(this.playerHand);
+			let items = this.playerHand.getAllItems();
+			for (let card of items) {
+				let material = this.gamedatas.cards[card.type].material;
+				if (benchMaterials[material] >= this.gamedatas.materials[material].value )
+					yield card.id;
+			}
 		},
 
 		canPerformCraft: function(material_type) {
@@ -577,10 +630,66 @@ function(dojo, declare) {
 			});
 		},
 
+		onSelectingCardToSmith: function(event) {
+			let card_id = dojo.attr(event.target, 'id').split('_').pop();
+			this.clientStateArgs.card_id = card_id;
+			let card_material = this.gamedatas.materials[this.gamedatas.card_id_to_type[card_id].material];
+			// TODO: Count already-revealed cards
+			let support_required = card_material.value - 1;
+			if (support_required) {
+				this.clientStateArgs.material_id = card_material.id;
+				this.clientStateArgs.support_required = support_required;
+				this.setClientState('client_selectSmithRevealCards', {
+					descriptionmyturn: _('Select ${count} ${material} card(s) to reveal'),
+					args: {
+						count: support_required,
+						material: card_material.name,
+					}
+				});
+			} else {
+				this.setClientState('client_selectSmithCraftWing', {
+					descriptionmyturn: _('Select a wing for ${card_name}'),
+					args: {
+						card_name: this.gamedatas.card_id_to_type[card_id].name,
+					}
+				});
+			}
+		},
+
+		onChoosingSmithRevealCard: function(event) {
+			dojo.stopEvent(event);
+			if (this.isInterfaceLocked()) return;
+			if (!this.checkAction('chooseAction')) return;
+			let elem = event.target;
+			let card_id = elem.id.split('_').pop();
+			if (elem.classList.contains('selected')) {
+				elem.classList.add('selectable');
+				elem.classList.remove('selected');
+				this.smithRevealCards.delete(card_id);
+			} else if (this.smithRevealCards.size < this.clientStateArgs.support_required) {
+				elem.classList.add('selected');
+				elem.classList.remove('selectable');
+				this.smithRevealCards.add(card_id);
+			}
+
+			let buttonElem = document.getElementById('button_smith_reveal');
+			if (this.smithRevealCards.size == this.clientStateArgs.support_required) {
+				buttonElem.classList.add('bgabutton_blue');
+				buttonElem.classList.remove('bgabutton_gray');
+			} else {
+				buttonElem.classList.add('bgabutton_gray');
+				buttonElem.classList.remove('bgabutton_blue');
+			}
+		},
+
+		confirmSmithReveal: function(event) {
+			// TODO
+		},
+
 		onSelectingCardToCraft: function(event) {
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
-			this.clientStateArgs['card_id'] = card_id;
-			this.setClientState('client_selectCraftWing', {
+			this.clientStateArgs.card_id = card_id;
+			this.setClientState('client_selectSmithCraftWing', {
 				descriptionmyturn: _('Select a wing for ${card_name}'),
 				args: {
 					card_name: this.gamedatas.card_id_to_type[card_id].name,
@@ -621,9 +730,15 @@ function(dojo, declare) {
 		},
 
 		doSmith: function(event) {
+			this.clientStateArgs.action = 'smith';
+			this.smithRevealCards = new Set();
+			this.setClientState('client_doSmith', {
+				descriptionmyturn: _('Select a card to smith'),
+			});
 		},
 
 		doCraft: function(event) {
+			this.clientStateArgs.action = 'craft';
 			this.setClientState('client_doCraft', {
 				descriptionmyturn: _('Select a ${material_name} card to craft'),
 				args: {
@@ -632,13 +747,17 @@ function(dojo, declare) {
 			});
 		},
 
-		doCraftWing: function(event, wing) {
+		doSmithCraftWing: function(event, wing) {
 			dojo.stopEvent(event);
-			this.ajaxAction('chooseAction', {
-				action_: 'craft',
-				card_id: this.clientStateArgs['card_id'],
+			let args = {
+				action_: this.clientStateArgs.action,
+				card_id: this.clientStateArgs.card_id,
 				wing: wing,
-			});
+			};
+			if (this.smithRevealCards && this.smithRevealCards.size) {
+				args.card_list = [...this.smithRevealCards].join(',');
+			}
+			this.ajaxAction('chooseAction', args);
 		},
 
 		doPray: function(event) {
@@ -672,6 +791,7 @@ function(dojo, declare) {
 			dojo.subscribe('chooseMonkCardFloor', this, 'notif_chooseMonkCardFloor');
 			dojo.subscribe('choosePotterCardFloor', this, 'notif_choosePotterCardFloor');
 			dojo.subscribe('chooseActionPray', this, 'notif_chooseActionPray');
+			dojo.subscribe('smithedWork', this, 'notif_smithedWork');
 			dojo.subscribe('craftedWork', this, 'notif_craftedWork');
 			if (this.isSpectator) {
 				dojo.subscribe('drawWaitingAreaSpectator', this, 'notif_drawWaitingAreaSpectator');
@@ -741,6 +861,20 @@ function(dojo, declare) {
 			let player_id = notif.args.player_id;
 			this.deck_count.incValue(-1);
 			this.players[player_id].waiting_area.incValue(1);
+		},
+
+		notif_smithedWork: function(notif) {
+			let card_id = notif.args.card_id;
+			if (!card_id) return;
+			let card_type = this.gamedatas.card_id_to_type[card_id].id;
+			let player_id = notif.args.player_id;
+			if (player_id == this.getThisPlayerId()) {
+				this.playerHand.removeFromStockById(card_id);
+			} else {
+				this.players[player_id].hand_count.incValue(-1);
+			}
+			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
+			// TODO: Update score
 		},
 
 		notif_craftedWork: function(notif) {

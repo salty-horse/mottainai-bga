@@ -39,6 +39,7 @@ class Mottainai extends Table {
             "currentTaskActionCurrent" => 12,
             "currentTaskActionTotal" => 13,
             "completedCard" => 14,
+            "maxWorksInWing" => 100,
         ]);
         
         $this->deck = self::getNew("module.common.deck");
@@ -462,6 +463,72 @@ class Mottainai extends Table {
             ]);
             // TODO: Plane
 
+        // SMITH
+        } else if ($action == 'smith') {
+            if ($current_task != $this->METAL->id) {
+                throw new BgaUserException(self::_('Action does not match task.'));
+            }
+            $hand_cards = $this->deck->getCardsInLocation('hand', $player_id);
+            if (!array_key_exists($card_id, $hand_cards)) {
+                throw new BgaUserException(self::_('This card is not allowed.'));
+            }
+            $card_info = $this->cards[$hand_cards[$card_id]['type_arg']];
+            if (count($card_list) != $card_info->material->value - 1) {
+                throw new BgaUserException(self::_('Wrong revealed card amount.'));
+            }
+            if ($card_info->material->value > 1) {
+                foreach ($card_list as &$card_to_reveal) {
+                    if ($card_to_reveal == $card_id) {
+                        throw new BgaUserException(self::_('Can\'t reveal smithed card.'));
+                    }
+                    if (!array_key_exists($card_to_reveal, $hand_cards)) {
+                        throw new BgaUserException(self::_('Revealed card not in hand.'));
+                    }
+                    $card_to_reveal_info = $this->cards[$hand_cards[$card_to_reveal]['type_arg']];
+                    if ($card_to_reveal_info->material->id != $card_info->material->id) {
+                        throw new BgaUserException(self::_('Revealed card of wrong type.'));
+                    }
+                }
+            }
+
+            $this->deck->moveCard($card_id, $wing, $player_id);
+            self::setGameStateValue('completedCard', $card_id);
+
+            // TODO: update score - maybe in stCompletedWork since it can be affected by card effects
+
+            $notification_text;
+            $notification_args = [
+                'i18n' => ['card_name', 'wing_name'],
+                'card_id' => $card_id,
+                'wing' => $wing,
+                'player_id' => $player_id,
+                'player_name' => self::getActivePlayerName(),
+                'card_name' => $card_info->name,
+                'wing_name' => $this->wing_names[$wing],
+                'revealed_cards' => $card_list,
+            ];
+            switch (count($card_list)) {
+                case 0:
+                    $notification_text = clienttranslate('${player_name} smiths ${card_name} into the ${wing_name}');
+                    break;
+                case 1:
+                    $notification_text = clienttranslate('${player_name} smiths ${card_name} into the ${wing_name}, revealing ${reveal_card_1}');
+                    array_push($notification_args['i18n'], 'reveal_card_1');
+                    $notification_args['reveal_card_1'] = $this->cards[$hand_cards[$card_list[0]]['type_arg']]->name;
+                    break;
+                case 2:
+                    $notification_text = clienttranslate('${player_name} smiths ${card_name} into the ${wing_name}, revealing ${reveal_card_1} and ${reveal_card_2}');
+                    array_push($notification_args['i18n'], 'reveal_card_1', 'reveal_card_2');
+                    $notification_args['reveal_card_1'] = $this->cards[$hand_cards[$card_list[0]]['type_arg']]->name;
+                    $notification_args['reveal_card_2'] = $this->cards[$hand_cards[$card_list[1]]['type_arg']]->name;
+                    break;
+            }
+
+            self::notifyAllPlayers('smithedWork', $notification_text, $notification_args);
+
+            $this->gamestate->nextState('completed_work');
+            return;
+
         // CRAFT
         } else if ($action == 'craft') {
             $card = $this->deck->getCard($card_id);
@@ -707,7 +774,7 @@ class Mottainai extends Table {
     }
 
     function stCompletedWork() {
-        # TODO: Check end of game
+        # TODO: Check end of game based on maxWorksInWing
         # TODO: Check triggered effects
         $this->gamestate->nextState('next');
     }
