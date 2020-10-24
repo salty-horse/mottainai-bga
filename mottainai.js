@@ -55,6 +55,10 @@ function(dojo, declare) {
 				gamedatas['card_id_to_type'][k] = gamedatas.cards[v];
 			}
 
+			for (let v of Object.values(gamedatas['cards'])) {
+				v.material = gamedatas.materials[v.material];
+			}
+
 			this.setupPlayerTables();
 			this.setupNotifications();
 
@@ -145,8 +149,7 @@ function(dojo, declare) {
 				card_div.innerHTML = 'Hidden';
 			} else {
 				let card = this.gamedatas.cards[card_type_id];
-				let material = this.gamedatas.materials[card.material];
-				card_div.innerHTML = `${card.name} ${material.symbol}`;
+				card_div.innerHTML = `${card.name} ${card.material.symbol}`;
 			}
 		},
 
@@ -159,11 +162,10 @@ function(dojo, declare) {
 
 		createCardElement: function(cardObj) {
 			let card = this.gamedatas.cards[cardObj.type_arg];
-			let material = this.gamedatas.materials[card.material];
 			let elem = dojo.create('div', {
 				id: `card_${cardObj.id}`,
 				class: 'card',
-				innerHTML: `${card.name} ${material.symbol}`,
+				innerHTML: `${card.name} ${card.material.symbol}`,
 			});
 
 			return elem;
@@ -268,7 +270,7 @@ function(dojo, declare) {
 					let card_id = node.id.split('_').pop();
 					if (card_id == this.clientStateArgs.card_id)
 						return;
-					let card_material = this.gamedatas.card_id_to_type[card_id].material;
+					let card_material = this.gamedatas.card_id_to_type[card_id].material.id;
 					if (card_material != this.clientStateArgs.material_id)
 						return;
 					this.selectableElements.push(node);
@@ -442,7 +444,7 @@ function(dojo, declare) {
 				let items = this.playerHand.getAllItems();
 				for (let card of items) {
 					let material = this.gamedatas.cards[card.type].material;
-					if (handMaterials[material] >= this.gamedatas.materials[material].value)
+					if (handMaterials[material.id] >= material.value)
 						return true;
 				}
 			}
@@ -460,7 +462,7 @@ function(dojo, declare) {
 			let items = this.playerHand.getAllItems();
 			for (let card of items) {
 				let material = this.gamedatas.cards[card.type].material;
-				if (benchMaterials[material] >= this.gamedatas.materials[material].value )
+				if (benchMaterials[material.id] >= material.value)
 					yield card.id;
 			}
 		},
@@ -475,9 +477,9 @@ function(dojo, declare) {
 			let items = this.playerHand.getAllItems();
 			for (let card of items) {
 				let material = this.gamedatas.cards[card.type].material;
-				if (material != material_type)
+				if (material.id != material_type)
 					continue;
-				if (benchMaterials[material] >= this.gamedatas.materials[material].value - 1)
+				if (benchMaterials[material] >= material.value - 1)
 					yield card.id;
 			}
 		},
@@ -492,7 +494,7 @@ function(dojo, declare) {
 			};
 			for (let card of stock.getAllItems()) {
 				let material = this.gamedatas.cards[card.type].material;
-				stockByMaterial[material] += 1;
+				stockByMaterial[material.id] += 1;
 			}
 			return stockByMaterial;
 		},
@@ -633,7 +635,7 @@ function(dojo, declare) {
 		onSelectingCardToSmith: function(event) {
 			let card_id = dojo.attr(event.target, 'id').split('_').pop();
 			this.clientStateArgs.card_id = card_id;
-			let card_material = this.gamedatas.materials[this.gamedatas.card_id_to_type[card_id].material];
+			let card_material = this.gamedatas.card_id_to_type[card_id].material;
 			// TODO: Count already-revealed cards
 			let support_required = card_material.value - 1;
 			if (support_required) {
