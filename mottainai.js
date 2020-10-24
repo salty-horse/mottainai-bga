@@ -839,12 +839,12 @@ function(dojo, declare) {
 			let card_id = notif.args.card_id;
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
+			this.floor.addToStockWithId(card_type, card_id, this.players[player_id].task.container_div);
 			if (!notif.args.initial) {
 				this.players[player_id].task.removeFromStockById(card_id);
 			} else {
 				this.players[player_id].task.removeFromStockById('9999');
 			}
-			this.floor.addToStockWithId(card_type, card_id, this.players[player_id].task.container_div);
 		},
 
 		notif_chooseNewTask: function(notif) {
@@ -853,8 +853,8 @@ function(dojo, declare) {
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
 			if (player_id == this.getThisPlayerId()) {
-				this.playerHand.removeFromStockById(card_id);
 				this.players[player_id].task.addToStockWithId(card_type, card_id, this.playerHand.container_div);
+				this.playerHand.removeFromStockById(card_id);
 			} else {
 				this.players[player_id].hand_count.incValue(-1);
 				this.players[player_id].task.addToStockWithId(card_type, card_id);
@@ -866,8 +866,8 @@ function(dojo, declare) {
 			if (!card_id) return;
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
-			this.players[player_id].craft_bench.removeFromStockById(card_id);
 			this.players[player_id].sales.addToStockWithId(card_type, card_id, this.players[player_id].craft_bench.container_div);
+			this.players[player_id].craft_bench.removeFromStockById(card_id);
 			this.calculatePlayerScore(player_id);
 		},
 
@@ -876,8 +876,8 @@ function(dojo, declare) {
 			if (!card_id) return;
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
-			this.floor.removeFromStockById(card_id);
 			this.players[player_id].helpers.addToStockWithId(card_type, card_id, this.floor.container_div);
+			this.floor.removeFromStockById(card_id);
 		},
 
 		notif_choosePotterCardFloor: function(notif) {
@@ -885,8 +885,8 @@ function(dojo, declare) {
 			if (!card_id) return;
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
-			this.floor.removeFromStockById(card_id);
 			this.players[player_id].craft_bench.addToStockWithId(card_type, card_id, this.floor.container_div);
+			this.floor.removeFromStockById(card_id);
 		},
 
 		notif_chooseActionPray: function(notif) {
@@ -900,12 +900,12 @@ function(dojo, declare) {
 			if (!card_id) return;
 			let card_info = this.gamedatas.card_id_to_type[card_id];
 			let player_id = notif.args.player_id;
+			this.players[player_id][notif.args.wing].addToStockWithId(card_info.id, card_id);
 			if (player_id == this.getThisPlayerId()) {
 				this.playerHand.removeFromStockById(card_id);
 			} else {
 				this.players[player_id].hand_count.incValue(-1);
 			}
-			this.players[player_id][notif.args.wing].addToStockWithId(card_info.id, card_id);
 
 			this.calculatePlayerScore(player_id);
 		},
@@ -915,12 +915,12 @@ function(dojo, declare) {
 			if (!card_id) return;
 			let card_type = this.gamedatas.card_id_to_type[card_id].id;
 			let player_id = notif.args.player_id;
+			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
 			if (player_id == this.getThisPlayerId()) {
 				this.playerHand.removeFromStockById(card_id);
 			} else {
 				this.players[player_id].hand_count.incValue(-1);
 			}
-			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
 
 			this.calculatePlayerScore(player_id);
 		},
