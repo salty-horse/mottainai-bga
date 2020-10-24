@@ -315,7 +315,7 @@ function(dojo, declare) {
 				let player_id = this.getThisPlayerId();
 				switch (stateName) {
 				case 'reduceHand':
-					this.addActionButton('button_reduce', _('Return cards'), 'doReduceHand', null, false, 'gray');
+					this.addActionButton('button_reduce', _('Return card(s)'), 'doReduceHand', null, false, 'gray');
 					break;
 				case 'chooseNewTask':
 					this.addActionButton('button_1_id', _('Skip'), 'doSkipNewTask');
@@ -428,6 +428,41 @@ function(dojo, declare) {
 			this.ajaxcall(`/${name}/${name}/${action}.html`, args, this, func, err);
 		},
 
+		calculatePlayerScore: function(player_id) {
+			let score = 0;
+
+			// TODO: Kite
+
+			// Gallery works
+			for (let card of this.players[player_id].gallery.getAllItems()) {
+				score += this.gamedatas.cards[card.type].material.value;
+			}
+
+			// Gift Shop works
+			let giftShopByMaterial = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+			for (let card of this.players[player_id].gift_shop.getAllItems()) {
+				let material = this.gamedatas.cards[card.type].material;
+				score += material.value;
+				giftShopByMaterial[material.id] += 1;
+			}
+
+			// TODO: Works that affect sales: Pillar, Quilt, Go Set
+
+			// Covered sales
+			let salesByMaterial = this.countStockByMaterial(this.players[player_id].sales);
+			for (let material_id in salesByMaterial) {
+				if (!salesByMaterial[material_id]) continue;
+				let material_value = this.gamedatas.materials[material_id].value;
+				if (salesByMaterial[material_id] <= giftShopByMaterial[material_id] * material_value) {
+					score += salesByMaterial[material_id] * material_value;
+				}
+			}
+
+			// TODO: Works that give points: Scroll, Bench, Tapestry, Haniwa, Teapot
+
+			this.scoreCtrl[player_id].setValue(score);
+		},
+
 		canPerformTask: function(task_id) {
 			let player_id = this.getThisPlayerId();
 			if (task_id == 1) { // Clerk
@@ -485,13 +520,7 @@ function(dojo, declare) {
 		},
 
 		countStockByMaterial: function(stock) {
-			let stockByMaterial = {
-				1: 0,
-				2: 0,
-				3: 0,
-				4: 0,
-				5: 0,
-			};
+			let stockByMaterial = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
 			for (let card of stock.getAllItems()) {
 				let material = this.gamedatas.cards[card.type].material;
 				stockByMaterial[material.id] += 1;
@@ -839,6 +868,7 @@ function(dojo, declare) {
 			let player_id = notif.args.player_id;
 			this.players[player_id].craft_bench.removeFromStockById(card_id);
 			this.players[player_id].sales.addToStockWithId(card_type, card_id, this.players[player_id].craft_bench.container_div);
+			this.calculatePlayerScore(player_id);
 		},
 
 		notif_chooseMonkCardFloor: function(notif) {
@@ -868,15 +898,16 @@ function(dojo, declare) {
 		notif_smithedWork: function(notif) {
 			let card_id = notif.args.card_id;
 			if (!card_id) return;
-			let card_type = this.gamedatas.card_id_to_type[card_id].id;
+			let card_info = this.gamedatas.card_id_to_type[card_id];
 			let player_id = notif.args.player_id;
 			if (player_id == this.getThisPlayerId()) {
 				this.playerHand.removeFromStockById(card_id);
 			} else {
 				this.players[player_id].hand_count.incValue(-1);
 			}
-			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
-			// TODO: Update score
+			this.players[player_id][notif.args.wing].addToStockWithId(card_info.id, card_id);
+
+			this.calculatePlayerScore(player_id);
 		},
 
 		notif_craftedWork: function(notif) {
@@ -890,7 +921,8 @@ function(dojo, declare) {
 				this.players[player_id].hand_count.incValue(-1);
 			}
 			this.players[player_id][notif.args.wing].addToStockWithId(card_type, card_id);
-			// TODO: Update score
+
+			this.calculatePlayerScore(player_id);
 		},
 
 		notif_drawWaitingAreaSpectator: function(notif) {

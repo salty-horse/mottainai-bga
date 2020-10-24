@@ -215,16 +215,73 @@ class Mottainai extends Table {
         return 0;
     }
 
-        //////////////////////////////////////////////////////////////////////////////
-        //////////// Utility functions
-        ////////////
-        /*
-     * In this space, you can put any utility methods useful for your game logic
-     */
-        //////////////////////////////////////////////////////////////////////////////
-        //////////// Player actions
-        ////////////
-        /*
+    //////////////////////////////////////////////////////////////////////////////
+    //////////// Utility functions
+    ////////////
+    //
+    // In this space, you can put any utility methods useful for your game logic
+    //
+
+    // get score
+    function dbGetScore($player_id) {
+        return $this->getUniqueValueFromDB("SELECT player_score FROM player WHERE player_id='$player_id'");
+    }
+
+    // set score
+    function dbSetScore($player_id, $count) {
+        $this->DbQuery("UPDATE player SET player_score='$count' WHERE player_id='$player_id'");
+    }
+
+    // set aux score (tie breaker)
+    function dbSetAuxScore($player_id, $score) {
+        $this->DbQuery("UPDATE player SET player_score_aux=$score WHERE player_id='$player_id'");
+    }
+
+    function calculateScore($player_id) {
+        $score = 0;
+
+        // TODO: Kite
+
+        // Gallery works
+        $gallery_cards = $this->deck->getCardsInLocation('gallery', $player_id);
+        foreach ($gallery_cards as $card_id => $card) {
+            $score += $this->cards[$card['type_arg']]->material->value;
+        }
+
+        // Gift Shop works
+        $gift_shop_by_material = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+        $gift_shop_cards = $this->deck->getCardsInLocation('gift_shop', $player_id);
+        foreach ($gift_shop_cards as $card_id => $card) {
+            $material = $this->cards[$card['type_arg']]->material;
+            $score += $material->value;
+            $gift_shop_by_material[$material->id] += 1;
+        }
+
+        // TODO: Works that affect sales: Pillar, Quilt, Go Set
+
+        // Covered sales
+        $sales_by_material = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+        $sales_cards = $this->deck->getCardsInLocation('sales', $player_id);
+        foreach ($sales_cards as $card_id => $card) {
+            $sales_by_material[$this->cards[$card['type_arg']]->material->id] += 1;
+        }
+        foreach ($sales_by_material as $material_id => $sales_count) {
+            if ($sales_count == 0) continue;
+            $material_value = $this->materials[$material_id]->value;
+            if ($sales_count <= $gift_shop_by_material[$material_id] * $material_value) {
+                $score += $sales_count * $material_value;
+            }
+        }
+
+        // TODO: Works that give points: Scroll, Bench, Tapestry, Haniwa, Teapot
+
+        $this->dbSetScore($player_id, $score);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////
+    //////////// Player actions
+    ////////////
+    /*
      * Each time a player is doing some game action, one of the methods below is called.
      * (note: each method below must match an input method in template.action.php)
      */
@@ -333,7 +390,8 @@ class Mottainai extends Table {
 
             $card_info = $this->cards[$card['type_arg']];
 
-            // TODO: Update score
+            // Update score
+            $this->calculateScore($player_id);
 
             self::notifyAllPlayers('chooseClerkCard', clienttranslate('${player_name} sells ${card_name} from the Craft Bench'), [
                 'i18n' => ['card_name'],
@@ -494,8 +552,6 @@ class Mottainai extends Table {
             $this->deck->moveCard($card_id, $wing, $player_id);
             self::setGameStateValue('completedCard', $card_id);
 
-            // TODO: update score - maybe in stCompletedWork since it can be affected by card effects
-
             $notification_text;
             $notification_args = [
                 'i18n' => ['card_name', 'wing_name'],
@@ -555,8 +611,6 @@ class Mottainai extends Table {
 
             $this->deck->moveCard($card_id, $wing, $player_id);
             self::setGameStateValue('completedCard', $card_id);
-
-            // TODO: update score - maybe in stCompletedWork since it can be affected by card effects
 
             self::notifyAllPlayers('craftedWork', clienttranslate('${player_name} crafts ${card_name} into the ${wing_name}'), [
                 'i18n' => ['card_name', 'wing_name'],
@@ -774,6 +828,13 @@ class Mottainai extends Table {
     }
 
     function stCompletedWork() {
+        $player_id = self::getActivePlayerId();
+        $card_id = self::getGameStateValue('completedCard');
+        $card_info = $this->cards[$card_id];
+
+        // Update score
+        $this->calculateScore($player_id);
+
         # TODO: Check end of game based on maxWorksInWing
         # TODO: Check triggered effects
         $this->gamestate->nextState('next');
