@@ -42,29 +42,38 @@
            Consequently, don't hesitate to put as many comments as necessary.
 */
 
+.card_image {
+	user-select: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+.card_image.selectable {
+	cursor: pointer;
+	outline: 4px solid yellow;
+}
+.card_image.selected {
+	cursor: pointer;
+	outline: 4px solid green;
+}
+
 .card {
     display: inline-block;
     user-select: none;
     margin-left: 0.5em;
     margin-right: 0.5em;
-	position: relative;
-	top: 0;
-	left: 0;
-}
-.stockitem_selectable {
-	cursor: pointer;
-    border: 4px solid yellow;
-    margin-top: -4px;
-    margin-bottom: -4px;
+    position: relative;
+    top: 0;
+    left: 0;
 }
 .card.selectable {
-	cursor: pointer;
+    cursor: pointer;
     border: 4px solid yellow;
     margin-top: -4px;
     margin-bottom: -4px;
 }
 .card.selected {
-	cursor: pointer;
+    cursor: pointer;
     border: 4px solid green;
     margin-top: -4px;
     margin-bottom: -4px;
@@ -77,6 +86,80 @@
 
 .card_list {
     display: inline-block;
+}
+
+.player_board {
+    display: -ms-flexbox;
+    display: -webkit-flex;
+    display: flex;
+    -webkit-flex-direction: row;
+    -ms-flex-direction: row;
+    flex-direction: row;
+    -webkit-flex-wrap: nowrap;
+    -ms-flex-wrap: nowrap;
+    flex-wrap: nowrap;
+    -webkit-justify-content: flex-start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+    -webkit-align-content: stretch;
+    -ms-flex-line-pack: stretch;
+    align-content: stretch;
+    -webkit-align-items: flex-start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+}
+
+.player_board_item {
+	text-align: center;
+}
+
+.wing {
+    -webkit-order: 0;
+    -ms-flex-order: 0;
+    order: 0;
+    -webkit-flex: 0 1 auto;
+    -ms-flex: 0 1 auto;
+    flex: 0 1 auto;
+    -webkit-align-self: auto;
+    -ms-flex-item-align: auto;
+    align-self: auto;
+	width: 480px; /* 3 cards wide */
+}
+
+.player_board_item:nth-child(2) {
+    -webkit-order: 0;
+    -ms-flex-order: 0;
+    order: 0;
+    -webkit-flex: 0 1 auto;
+    -ms-flex: 0 1 auto;
+    flex: 0 1 auto;
+    -webkit-align-self: auto;
+    -ms-flex-item-align: auto;
+    align-self: auto;
+}
+
+.player_board_item:nth-child(3) {
+    -webkit-order: 0;
+    -ms-flex-order: 0;
+    order: 0;
+    -webkit-flex: 1 1 auto;
+    -ms-flex: 1 1 auto;
+    flex: 1 1 auto;
+    -webkit-align-self: auto;
+    -ms-flex-item-align: auto;
+    align-self: auto;
+}
+
+.player_board_item:nth-child(4) {
+    -webkit-order: 0;
+    -ms-flex-order: 0;
+    order: 0;
+    -webkit-flex: 0 1 auto;
+    -ms-flex: 0 1 auto;
+    flex: 0 1 auto;
+    -webkit-align-self: auto;
+    -ms-flex-item-align: auto;
+    align-self: auto;
 }
 
 /* Note: you must not use any @import directive */

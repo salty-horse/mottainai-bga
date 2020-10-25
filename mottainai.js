@@ -82,7 +82,7 @@ function(dojo, declare) {
 
 		setupPlayerTables: function() {
 			dojo.create('div', {class: 'table whiteblock', innerHTML: '<div><span class="table_label">Deck:</span><div class="card_list" id="deck_count"></div></div><h3>Floor</h3><div id="floor"></div>'}, 'player_table', 'last');
-			this.floor = this.createAndPopulateStock(this.gamedatas.floor, 'floor'),
+			this.floor = this.createAndPopulateStock(this.gamedatas.floor, 'floor', true),
 			this.deck_count = new ebg.counter();
 			this.deck_count.create('deck_count');
 			this.deck_count.setValue(this.gamedatas.deck_count);
@@ -107,8 +107,8 @@ function(dojo, declare) {
 				// TODO: Show opponent's revealed hand
 				this.players[player.id] = {
 					task: this.createAndPopulateStock(player.task, `player_${player.id}_task`),
-					gallery: this.createAndPopulateStock(player.gallery, `player_${player.id}_gallery`),
-					gift_shop: this.createAndPopulateStock(player.gift_shop, `player_${player.id}_gift_shop`),
+					gallery: this.createAndPopulateStock(player.gallery, `player_${player.id}_gallery`, true, true),
+					gift_shop: this.createAndPopulateStock(player.gift_shop, `player_${player.id}_gift_shop`, true, true),
 					helpers: this.createAndPopulateStock(player.helpers, `player_${player.id}_helpers`),
 					craft_bench: this.createAndPopulateStock(player.craft_bench, `player_${player.id}_craft_bench`),
 					sales: this.createAndPopulateStock(player.sales, `player_${player.id}_sales`),
@@ -119,7 +119,7 @@ function(dojo, declare) {
 					this.players[player_id].hand_count.create(`player_${player_id}_hand_count`);
 					this.players[player_id].hand_count.setValue(player.hand_count);
 				} else {
-					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, `player_${player.id}_hand`);
+					this.playerHand = this.createAndPopulateStock(this.gamedatas.hand, `player_${player.id}_hand`, true);
 				}
 
 				this.players[player_id].waiting_area = new ebg.counter();
@@ -128,16 +128,25 @@ function(dojo, declare) {
 			}
 		},
 
-		createAndPopulateStock: function(card_list, element_id) {
+		createAndPopulateStock: function(card_list, element_id, with_graphics, center) {
+			let url = '';
 			let stock = new ebg.stock();
-			stock.jstpl_stock_item= "<div id=\"${id}\" class=\"card\" ></div>";
-			stock.centerItems = false;
+			stock.centerItems = center;
 			// stock.setSelectionMode(0);
 			stock.setSelectionAppearance('');
-			stock.create(this, $(element_id), 5, 5);
-			stock.onItemCreate = dojo.hitch(this, 'setupNewCard');
+			if (with_graphics) {
+				stock.create(this, $(element_id), 150, 210);
+				url = `${g_gamethemeurl}img/cards-small.png`;
+				stock.image_items_per_row = 9;
+				stock.jstpl_stock_item = "<div id=\"${id}\" class=\"card_image\" style=\"top:${top}px;left:${left}px;width:${width}px;height:${height}px;${position};background-image:url('${image}')\"></div>";
+			} else {
+				stock.create(this, $(element_id), 5, 5);
+				stock.jstpl_stock_item = "<div id=\"${id}\" class=\"card\" ></div>";
+				stock.onItemCreate = dojo.hitch(this, 'setupNewCard');
+			}
 			for (let c in this.gamedatas.cards) {
-				stock.addItemType(this.gamedatas.cards[c].id, 1, '');
+				let card_id = this.gamedatas.cards[c].id
+				stock.addItemType(card_id, card_id, url, card_id - 1);
 			}
 			stock.addItemType('9999', 1, '');
 			this.addCardsToStock(card_list, stock);
@@ -197,7 +206,7 @@ function(dojo, declare) {
 
 				this.reduceHandCards = new Set();
 				this.reduceHandTarget = args.args.count;
-				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+				dojo.query(`#player_${player_id}_hand > .card_image`).forEach((node, index, arr) => {
 					this.selectableElements.push(node);
 					node.classList.add('selectable');
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingReduceHand'));
@@ -207,7 +216,7 @@ function(dojo, declare) {
 				if (!this.isCurrentPlayerActive())
 					break;
 
-				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+				dojo.query(`#player_${player_id}_hand > .card_image`).forEach((node, index, arr) => {
 					this.selectableElements.push(node);
 					node.classList.add('selectable');
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingTask'));
@@ -227,7 +236,7 @@ function(dojo, declare) {
 				if (!this.isCurrentPlayerActive())
 					break;
 
-				dojo.query('#floor > .card').forEach((node, index, arr) => {
+				dojo.query('#floor > .card_image').forEach((node, index, arr) => {
 					this.selectableElements.push(node);
 					node.classList.add('selectable');
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingMonkFloorCard'));
@@ -236,7 +245,7 @@ function(dojo, declare) {
 			case 'client_doTailor':
 				if (!this.isCurrentPlayerActive())
 					break;
-				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+				dojo.query(`#player_${player_id}_hand > .card_image`).forEach((node, index, arr) => {
 					this.selectableElements.push(node);
 					node.classList.add('selectable');
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingTailorHandCard'));
@@ -247,7 +256,7 @@ function(dojo, declare) {
 				if (!this.isCurrentPlayerActive())
 					break;
 
-				dojo.query('#floor > .card').forEach((node, index, arr) => {
+				dojo.query('#floor > .card_image').forEach((node, index, arr) => {
 					this.selectableElements.push(node);
 					node.classList.add('selectable');
 					this.connections.push(dojo.connect(node, 'onclick', this, 'onChoosingPotterFloorCard'));
@@ -266,7 +275,7 @@ function(dojo, declare) {
 			case 'client_selectSmithRevealCards':
 				if (!this.isCurrentPlayerActive())
 					break;
-				dojo.query(`#player_${player_id}_hand > .card`).forEach((node, index, arr) => {
+				dojo.query(`#player_${player_id}_hand > .card_image`).forEach((node, index, arr) => {
 					let card_id = node.id.split('_').pop();
 					if (card_id == this.clientStateArgs.card_id)
 						return;

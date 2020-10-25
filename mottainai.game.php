@@ -114,6 +114,21 @@ class Mottainai extends Table {
         foreach ($players as $player_id => $player) {
             $this->deck->pickCards(5, 'deck', $player_id);
             $this->deck->pickCardForLocation('deck', 'initial_task', $player_id);
+
+			// FIXME: Tests
+            $this->deck->pickCardForLocation('deck', 'gallery', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gallery', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gallery', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gallery', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gift_shop', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gift_shop', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gift_shop', $player_id);
+            $this->deck->pickCardForLocation('deck', 'gift_shop', $player_id);
+            $this->deck->pickCardForLocation('deck', 'helpers', $player_id);
+            $this->deck->pickCardForLocation('deck', 'helpers', $player_id);
+            $this->deck->pickCardForLocation('deck', 'helpers', $player_id);
+            $this->deck->pickCardForLocation('deck', 'helpers', $player_id);
+
         }
         $this->deck->pickCardsForLocation(count($players), 'deck', 'floor');
 
